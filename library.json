@@ -1,0 +1,18 @@
+{
+    "name": "sml",
+    "version": "0.0.1",
+    "description": "Minimalistic state machine library",
+    "authors": [],
+    "frameworks": "*",
+    "platforms": "*",
+    "dependencies": {
+        "thijse/ArduinoLog": "^1.1.1"
+        "log": "^0.0.1",
+        "stdlike": "^0.0.1",
+        "supp": "^0.0.1",
+        "utest": "^0.0.1",
+    },
+    "build": {
+        "includeDir": "src"
+    }
+}

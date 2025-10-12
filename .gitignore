@@ -1,0 +1,6 @@
+.ccls
+.pio/
+.cache/
+bin/
+lib/
+compile_commands.json
