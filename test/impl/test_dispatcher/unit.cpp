@@ -1,10 +1,10 @@
 #include <sml/impl/dispatcher.h>
+#include <sml/impl/traits.h>
 #include <sml/make.h>
-#include <sml/traits.h>
 
 #include <utest/utest.h>
 
-namespace sml {
+namespace sml{
 
 Action auto count(int& c) {
     return [&](auto, auto) { ++c; };
@@ -37,14 +37,14 @@ TEST_F(t_dispatcher, test_dispatcher_runs) {
     struct S {
         using InitialId = S1;
         auto transitions() {
-            return make(state<S1>.on(event<E>).run(count(cnt)));
+            return make(sml::state<S1>.on(sml::event<E>).run(count(cnt)));
         }
         int& cnt;
     };
 
-    using M = traits::CombinedStateMachine<S>;
-    using Ts = traits::Transitions<M>;
-    using Ss = traits::AllStateUIds<impl::RefUId<S, S1>, Ts>;
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    using Ss = impl::traits::StateUIds<impl::RefUId<S, S1>, Ts>;
     using Disp = impl::Dispatcher<E, Ts, Ss>;
 
     int cnt = 0;
@@ -68,9 +68,9 @@ TEST_F(t_dispatcher, test_dispatcher_destination) {
         int& cnt;
     };
 
-    using M = traits::CombinedStateMachine<S>;
-    using Ts = traits::Transitions<M>;
-    using Ss = traits::AllStateUIds<impl::RefUId<S, S1>, Ts>;
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    using Ss = impl::traits::StateUIds<impl::RefUId<S, S1>, Ts>;
     using Disp = impl::Dispatcher<E, Ts, Ss>;
 
     int cnt = 0;
@@ -93,9 +93,9 @@ TEST_F(t_dispatcher, test_dispatcher_not_matched) {
         bool& go;
     };
 
-    using M = traits::CombinedStateMachine<S>;
-    using Ts = traits::Transitions<M>;
-    using Ss = traits::AllStateUIds<impl::RefUId<S, S1>, Ts>;
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    using Ss = impl::traits::StateUIds<impl::RefUId<S, S1>, Ts>;
     using Disp = impl::Dispatcher<E, Ts, Ss>;
 
     bool go = false;
@@ -123,9 +123,9 @@ TEST_F(t_dispatcher, test_dispatcher_multiple) {
         int &c1, &c2;
     };
 
-    using M = traits::CombinedStateMachine<S>;
-    using Ts = traits::Transitions<M>;
-    using Ss = traits::AllStateUIds<impl::RefUId<S, S1>, Ts>;
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    using Ss = impl::traits::StateUIds<impl::RefUId<S, S1>, Ts>;
     using Disp = impl::Dispatcher<E, Ts, Ss>;
 
     bool go1 = false, go2 = false;
@@ -152,6 +152,6 @@ TEST_F(t_dispatcher, test_dispatcher_multiple) {
     TEST_ASSERT_EQUAL(1, c2);
 }
 
-}  // namespace sml
+}  // namespace sml::impl
 
 TESTS_MAIN

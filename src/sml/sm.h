@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sml/impl/dispatcher.h"
-#include "sml/traits.h"
+#include "sml/impl/traits.h"
 
 namespace sml {
 
@@ -34,10 +34,10 @@ class SM {
 
  private:
     using InitialUId = impl::RefUId<TM, typename TM::InitialId>;
-    using M = traits::CombinedStateMachine<TM>;
-    using Trs = traits::Transitions<M>;
-    using UIds = traits::AllStateUIds<InitialUId, Trs>;
-    using EIds = traits::AllEventIds<Trs>;
+    using M = impl::traits::CombinedStateMachine<TM>;
+    using Trs = impl::traits::Transitions<M>;
+    using UIds = impl::traits::ExpandAnyIds<impl::traits::StateUIds<InitialUId, Trs>>;
+    using EIds = impl::traits::EventIds<Trs>;
 
     struct DispatcherMapper {
         template <typename EId>

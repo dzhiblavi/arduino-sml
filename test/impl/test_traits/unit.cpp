@@ -1,5 +1,5 @@
+#include <sml/impl/traits.h>
 #include <sml/make.h>
-#include <sml/traits.h>
 
 #include <utest/utest.h>
 
@@ -25,7 +25,7 @@ TEST(test_transitions_tuple) {
         }
     };
 
-    using TrTuple = traits::TransitionsTuple<SM>;
+    using TrTuple = impl::traits::TransitionsTuple<SM>;
     static_assert(stdlike::same_as<stdlike::tuple<T1, T2, T3>, TrTuple>);
 }
 
@@ -38,11 +38,11 @@ TEST(test_transitions) {
         }
     };
 
-    using TrTuple = traits::Transitions<SM>;
+    using TrTuple = impl::traits::Transitions<SM>;
     static_assert(stdlike::same_as<tl::List<T1, T2, T3>, TrTuple>);
 }
 
-TEST(test_all_event_ids) {
+TEST(test_event_ids) {
     struct SM {
         using InitialId = S;
 
@@ -53,7 +53,7 @@ TEST(test_all_event_ids) {
 
     static_assert(stdlike::same_as<
                   tl::List<E, sml::OnExitEventId>,
-                  traits::AllEventIds<traits::Transitions<SM>>>);
+                  impl::traits::EventIds<impl::traits::Transitions<SM>>>);
 }
 
 TEST(test_all_state_uids) {
@@ -67,7 +67,7 @@ TEST(test_all_state_uids) {
 
     static_assert(stdlike::same_as<
                   tl::List<sml::impl::RefUId<SM, S>, int, S>,
-                  traits::AllStateUIds<impl::RefUId<SM, S>, traits::Transitions<SM>>>);
+                  impl::traits::StateUIds<impl::RefUId<SM, S>, impl::traits::Transitions<SM>>>);
 }
 
 TEST(test_submachines) {
@@ -79,7 +79,7 @@ TEST(test_submachines) {
                 state<S>.on(onEnter).to(state<S>));
         }
     };
-    static_assert(stdlike::same_as<tl::List<>, traits::Submachines<M1>>);
+    static_assert(stdlike::same_as<tl::List<>, impl::traits::Submachines<M1>>);
 
     struct M2 {
         using InitialId = S;
@@ -91,7 +91,7 @@ TEST(test_submachines) {
             );
         }
     };
-    static_assert(stdlike::same_as<tl::List<M1>, traits::Submachines<M2>>);
+    static_assert(stdlike::same_as<tl::List<M1>, impl::traits::Submachines<M2>>);
 
     struct M3 {
         using InitialId = S;
@@ -103,7 +103,7 @@ TEST(test_submachines) {
             );
         }
     };
-    static_assert(stdlike::same_as<tl::List<M1, M2>, traits::Submachines<M3>>);
+    static_assert(stdlike::same_as<tl::List<M1, M2>, impl::traits::Submachines<M3>>);
 }
 
 TEST(test_marked_transitions) {
@@ -149,7 +149,7 @@ TEST(test_marked_transitions) {
                         state::Make<S>>,
                     state::Make<TerminalStateId, RefUId<M1, TerminalStateId>>,
                     state::Make<S, RefUId<M2, S>>>>,
-            typename impl::traits::MarkedTransitions<M2>::type>);
+            impl::traits::MarkedTransitions<M2>>);
 }
 
 TEST(test_combined_transitions) {

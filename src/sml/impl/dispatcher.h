@@ -9,7 +9,7 @@
 
 namespace sml::impl {
 
-template <size_t TrIdx, typename EId, typename SUId, typename AllStateUIds, typename EvTrTuple>
+template <size_t TrIdx, typename EId, typename SUId, typename StateUIds, typename EvTrTuple>
 int accept(const EId& id, EvTrTuple& transitions) {
     static constexpr size_t NumTransitions = stdlike::tuple_size_v<EvTrTuple>;
 
@@ -43,52 +43,44 @@ int accept(const EId& id, EvTrTuple& transitions) {
                 using Dst = typename Tr::Dst;
 
                 if constexpr (stdlike::same_as<void, Dst>) {
-                    static_assert(tl::Contains<AllStateUIds, SUId>);
-                    return tl::Find<SUId, AllStateUIds>;
+                    static_assert(tl::Contains<StateUIds, SUId>);
+                    return tl::Find<SUId, StateUIds>;
                 } else {
-                    static_assert(tl::Contains<AllStateUIds, typename Dst::UId>);
-                    return tl::Find<typename Dst::UId, AllStateUIds>;
+                    static_assert(tl::Contains<StateUIds, typename Dst::UId>);
+                    return tl::Find<typename Dst::UId, StateUIds>;
                 }
             }
 
-            return accept<TrIdx + 1, EId, SUId, AllStateUIds>(id, transitions);
+            return accept<TrIdx + 1, EId, SUId, StateUIds>(id, transitions);
         } else {
-            return accept<TrIdx + 1, EId, SUId, AllStateUIds>(id, transitions);
+            return accept<TrIdx + 1, EId, SUId, StateUIds>(id, transitions);
         }
     }
 }
 
-template <typename EId, tl::IsList AllTransitions, tl::IsList AllStateUIds>
+template <typename EId, tl::IsList Transitions, tl::IsList StateUIds>
 class Dispatcher {
-    using AllTransitionsTuple = tl::ApplyToTemplate<AllTransitions, stdlike::tuple>;
-
-    // filter transitions by event id
-    struct Pred {
-        template <typename T>
-        static constexpr bool test() {
-            return stdlike::same_as<EId, typename T::Event::Id>;
-        }
-    };
-    using EvTransitions = tl::Filter<Pred, AllTransitions>;
+    using EvTransitions = typename traits::FilterTransitionsByEventId<EId, Transitions>::type;
     using EvTransitionsTuple = tl::ApplyToTemplate<EvTransitions, stdlike::tuple>;
+    using TransitionsTuple = tl::ApplyToTemplate<Transitions, stdlike::tuple>;
 
     // get only states with matching outgoing transitions
     // while collecting all uids that are specified in AnyIds
     struct Mapper {
         template <typename T>
-        using Map = typename traits::AllUIdsAnyAware<typename T::Src::UId, AllStateUIds>::type;
+        using Map = typename traits::ExpandAnyIdsInUId<typename T::Src::UId, StateUIds>::type;
     };
     using OutboundStateUIds = tl::Unique<tl::Flatten<tl::Map<Mapper, EvTransitions>>>;
     static constexpr size_t NumOutboundStates = tl::Size<OutboundStateUIds>;
 
     // construct an injection from all states to outbound states
-    static constexpr auto StateInjection = tl::injection(AllStateUIds{}, OutboundStateUIds{});
+    static constexpr auto StateInjection = tl::injection(StateUIds{}, OutboundStateUIds{});
 
  public:
-    explicit Dispatcher(AllTransitionsTuple& ts) : transitions_{extractEvTransitions(ts)} {
+    explicit Dispatcher(TransitionsTuple& ts) : transitions_{extractEvTransitions(ts)} {
         stdlike::constexprFor<0, NumOutboundStates, 1>([this](auto I) {
             using UId = typename tl::At<I, OutboundStateUIds>::type;
-            handlers_[I] = &accept<0, EId, UId, AllStateUIds, EvTransitionsTuple>;
+            handlers_[I] = &accept<0, EId, UId, StateUIds, EvTransitionsTuple>;
         });
     }
 
@@ -101,11 +93,11 @@ class Dispatcher {
     }
 
  private:
-    EvTransitionsTuple extractEvTransitions(AllTransitionsTuple& ts) {
+    EvTransitionsTuple extractEvTransitions(TransitionsTuple& ts) {
         return tl::apply(
             [&]<Transition... T>(tl::Type<T>...) {
                 return EvTransitionsTuple{
-                    stdlike::move(stdlike::get<tl::Find<T, AllTransitions>>(ts))...,
+                    stdlike::move(stdlike::get<tl::Find<T, Transitions>>(ts))...,
                 };
             },
             EvTransitions{});
