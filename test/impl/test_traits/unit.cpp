@@ -10,7 +10,7 @@ namespace sml {
 
 auto t1 = state<S>.on(event<E>).to(state<int>);
 auto t2 = state<S>.on(event<E>).run(ConcreteAction{}).to(state<int>);
-auto t3 = state<S>.on(event<E>.when(ConcreteCondition<E>{})).to(state<int>);
+auto t3 = state<S>.on(event<E>.when(ConcreteCondition<AnyId<E>>{})).to(state<int>);
 
 using T1 = decltype(t1);
 using T2 = decltype(t2);

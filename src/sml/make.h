@@ -21,8 +21,8 @@ constexpr State auto enter =
 template <StateMachine M>
 constexpr State auto exit = impl::state::Make<TerminalStateId, impl::RefUId<M, TerminalStateId>>{};
 
-template <typename Id>
-constexpr Event auto event = impl::event::Make<Id>{};
+template <typename... Id>
+constexpr Event auto event = impl::event::Make<Id...>{};
 
 [[maybe_unused]] static constexpr State auto x = state<TerminalStateId>;
 [[maybe_unused]] static constexpr Event auto onEnter = event<OnEnterEventId>;

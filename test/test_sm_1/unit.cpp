@@ -1,4 +1,5 @@
 #include <sml/make.h>
+#include <sml/overloads.h>
 #include <sml/sm.h>
 #include <sml/syntax.h>
 
@@ -94,10 +95,17 @@ TEST_F(t_sm, test_sm_example_with_syntax) {
         auto transitions() {
             auto inc = [](int& x) { return [&x](auto, auto) { ++x; }; };
             auto cond = [](auto, char c) { return c == 'y'; };
-            auto log = [](auto, int x) { LINFO("M transition event=%d", x); };
+            auto log = overloads{
+                [](auto, int x) { LINFO("M transition event int=%d", x); },
+                [](auto, float x) { LINFO("M transition event float=%f", x); },
+                [](auto, char x) { LINFO("M transition event char=%d", (int)x); },
+                [](auto, auto) { LINFO("M anon transition"); },
+                [](auto, OnEnterEventId) { LINFO("M onEnter transition"); },
+                [](auto, OnExitEventId) { LINFO("M onExit transition"); },
+            };
 
             return make(
-                any<> + event<int> | log = bypass,  // logging bypass transition
+                any<> + event<> | log = bypass,  // logging bypass transition
                 state<S1> + event<int> | inc(c1) = state<S2>,
                 state<S2> + event<float> | inc(c2) = enter<S>,
                 exit<S> + onEnter | inc(c3) = state<S1>,
@@ -123,7 +131,7 @@ TEST_F(t_sm, test_sm_example_with_syntax) {
     TEST_ASSERT_FALSE(sm.feed('z'));
     TEST_ASSERT_TRUE(sm.feed('y'));  // S2 -> S1, c4
     TEST_ASSERT_EQUAL(2, m4);
-    TEST_ASSERT_TRUE(sm.feed(10));  // S1 -> S2, c1
+    TEST_ASSERT_TRUE(sm.feed(20));  // S1 -> S2, c1
     TEST_ASSERT_EQUAL(2, m1);
     TEST_ASSERT_TRUE(sm.feed(1.f));  // S2 -> enter<S>, c2
     TEST_ASSERT_EQUAL(1, m2);
@@ -136,7 +144,7 @@ TEST_F(t_sm, test_sm_example_with_syntax) {
     TEST_ASSERT_EQUAL(1, s3);
     TEST_ASSERT_TRUE(sm.feed('z'));  // S2 -> S1, c4
     TEST_ASSERT_EQUAL(1, s4);
-    TEST_ASSERT_TRUE(sm.feed(10));  // S1 -> x, c1
+    TEST_ASSERT_TRUE(sm.feed(30));  // S1 -> x, c1
     TEST_ASSERT_EQUAL(1, s1);
 
     // M: exit<S> -> S1, c3

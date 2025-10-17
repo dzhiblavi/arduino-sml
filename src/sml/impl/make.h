@@ -53,8 +53,8 @@ struct To : Mixin<To<T, D>> {
         return To<T, Dest>{stdlike::move(parent_)};
     }
 
-    template <typename SId>
-    bool tryExecute(SId sid, const typename Event::Id& eid) {
+    template <typename SId, typename EId>
+    bool tryExecute(SId sid, const EId& eid) {
         if constexpr (stdlike::same_as<typename Dst::Id, BypassStateId>) {
             parent_.tryExecute(sid, eid);
             return false;
@@ -76,8 +76,8 @@ struct Run : Mixin<Run<T, A>> {
 
     Run(T parent, A action) : parent_{stdlike::move(parent)}, action_{stdlike::move(action)} {}
 
-    template <typename SId>
-    bool tryExecute(SId sid, const typename Event::Id& eid) {
+    template <typename SId, typename EId>
+    bool tryExecute(SId sid, const EId& eid) {
         if (!parent_.tryExecute(sid, eid)) {
             return false;
         }
@@ -100,8 +100,8 @@ struct Make : Mixin<Make<S, E>> {
 
     explicit Make(E event) : event_{stdlike::move(event)} {}
 
-    template <typename SId>
-    bool tryExecute(SId sid, const typename Event::Id& eid) {
+    template <typename SId, typename EId>
+    bool tryExecute(SId sid, const EId& eid) {
         return event_.match(sid, eid);
     }
 
@@ -118,8 +118,8 @@ struct Replace : Mixin<Replace<T, NewSrc, NewDst>> {
 
     explicit Replace(T parent) : parent_{stdlike::move(parent)} {}
 
-    template <typename SId>
-    bool tryExecute(SId sid, const typename Event::Id& eid) {
+    template <typename SId, typename EId>
+    bool tryExecute(SId sid, const EId& eid) {
         return parent_.tryExecute(sid, eid);
     }
 
@@ -154,29 +154,29 @@ struct Make : Mixin<Make<TId, TUId>> {
 
 namespace event {
 
-template <typename E, Condition<typename E::Id> C>
+template <typename E, typename C, typename... TIds>
 struct When {
-    using Id = typename E::Id;
+    using Ids = typename E::Ids;
 
     When(E parent, C condition)
         : parent_{stdlike::move(parent)}
         , condition_{stdlike::move(condition)} {}
 
-    template <typename SId>
-    bool match(SId sid, const Id& eid) {
+    template <typename SId, IdMatches<Ids> EId>
+    bool match(SId sid, const EId& eid) {
         return parent_.match(sid, eid) && condition_(sid, eid);
     }
 
-    template <Condition<Id> Cond>
+    template <Condition<TIds...> Cond>
     auto when(Cond condition) {
-        return When<When, Cond>{
+        return When<When, Cond, TIds...>{
             stdlike::move(*this),
             stdlike::move(condition),
         };
     }
 
-    template <Condition<Id> TC>
-    auto operator[](TC cond) && {
+    template <Condition<TIds...> Cond>
+    auto operator[](Cond cond) && {
         return stdlike::move(*this).when(stdlike::move(cond));
     }
 
@@ -185,24 +185,24 @@ struct When {
     C condition_;
 };
 
-template <typename TId>
+template <typename... TIds>
 struct Make {
-    using Id = TId;
+    using Ids = AnyId<TIds...>;
 
-    template <typename SId>
-    bool match(SId, const Id&) const {
+    template <typename SId, IdMatches<Ids> EId>
+    bool match(SId, const EId&) const {
         return true;
     }
 
-    template <Condition<Id> C>
+    template <Condition<TIds...> C>
     auto when(C condition) const {
-        return When<Make, C>{
+        return When<Make, C, TIds...>{
             stdlike::move(*this),
             stdlike::move(condition),
         };
     }
 
-    template <Condition<Id> C>
+    template <Condition<TIds...> C>
     auto operator[](C cond) const {
         return this->when(stdlike::move(cond));
     }

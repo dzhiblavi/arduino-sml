@@ -36,7 +36,7 @@ struct FilterTransitionsByEventIdI {
     struct Pred {
         template <typename T>
         static constexpr bool test() {
-            return stdlike::same_as<EId, typename T::Event::Id>;
+            return T::Event::Ids::template matches<EId>();
         }
     };
 
@@ -101,10 +101,10 @@ template <tl::IsList Transitions>
 struct EventIdsI {
     struct Mapper {
         template <Transition T>
-        using Map = typename T::Event::Id;
+        using Map = typename T::Event::Ids::Ids; // tl::List<Id>
     };
 
-    using type = tl::Unique<tl::Map<Mapper, Transitions>>;
+    using type = tl::Unique<tl::Flatten<tl::Map<Mapper, Transitions>>>;
 };
 template <tl::IsList Transitions>
 using EventIds = typename EventIdsI<Transitions>::type;

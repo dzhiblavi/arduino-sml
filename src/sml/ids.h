@@ -43,4 +43,7 @@ struct Ids<AnyId<Is...>> {
 
 }  // namespace traits
 
+template <typename Id, typename Ids>
+concept IdMatches = traits::IsAnyId<Ids> && Ids::template matches<Id>();
+
 }  // namespace sml

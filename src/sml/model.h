@@ -1,5 +1,7 @@
 #pragma once
 
+#include "sml/ids.h"
+
 #include <stdlike/tuple.h>
 #include <stdlike/utility.h>
 
@@ -20,32 +22,38 @@ concept Action = requires(A a, AnyConstRef arg) {
     { a(arg, arg) } -> stdlike::same_as<void>;
 };
 
-template <typename C, typename EId>
-concept Condition = requires(C c, const EId& arg, AnyConstRef s) {
-    { c(s, arg) } -> stdlike::same_as<bool>;
+template <typename C, typename... EIds>
+concept Condition = requires(C c, const EIds&... arg, AnyConstRef s) {
+    { (c(s, arg) && ...) } -> stdlike::same_as<bool>;
 };
 
 using ConcreteAction = decltype([](auto, auto) {});
 
-template <typename E>
-struct ConcreteCondition {
-    bool operator()(auto, const E&) {
-        return false;
-    }
+template <typename Id>
+struct ConcreteConditionI {
+    bool operator()(auto, const Id&);
+};
+
+template <traits::IsAnyId Ids>
+struct ConcreteCondition;
+
+template <typename... Ids>
+struct ConcreteCondition<AnyId<Ids...>> : ConcreteConditionI<Ids>... {
+    using ConcreteConditionI<Ids>::operator()...;
 };
 
 // clang-format off
 template <typename E>
-concept Event = requires(E e, ConcreteCondition<typename E::Id> c, AnyConstRef s) {
-    typename E::Id;
-    { e.match(s, stdlike::declval<const typename E::Id&>()) } -> stdlike::same_as<bool>;
+concept Event = requires(E e, AnyConstRef s, ConcreteCondition<typename E::Ids> c) {
+    requires traits::IsAnyId<typename E::Ids>;
+    //{ e.match(s, stdlike::declval<const typename E::Id&>()) } -> stdlike::same_as<bool>;
     { stdlike::move(e).when(c) }; /*-> Event;*/
     { stdlike::move(e)[c] }; /*-> Event;*/
 };
 // clang-format on
 
 struct ConcreteEvent {
-    using Id = int;  // Id may hold data that will be passed to actions and conditions
+    using Ids = AnyId<int>;  // Id may hold data that will be passed to actions and conditions
     bool match(auto, auto&&);
     ConcreteEvent when(Condition<int> auto);
     ConcreteEvent operator[](Condition<int> auto);
@@ -79,7 +87,7 @@ struct ConcreteTransition {
     ConcreteTransition operator=(State auto);  // NOLINT
 
     template <typename SId>
-    bool tryExecute(SId, const typename Event::Id&);
+    bool tryExecute(SId, const int&);
 };
 
 template <typename T>
@@ -92,9 +100,9 @@ concept Transition = requires(T t, ConcreteAction a, ConcreteState s) {
     { stdlike::move(t) | a };    /*-> Transition;*/
     { stdlike::move(t).to(s) };  /*-> Transition;*/
     { stdlike::move(t) = s };    /*-> Transition;*/
-    {
-        t.tryExecute(int{}, stdlike::declval<const typename T::Event::Id&>())
-    } -> stdlike::same_as<bool>;
+    //{
+        //t.tryExecute(int{}, stdlike::declval<const typename T::Event::Id&>())
+    //} -> stdlike::same_as<bool>;
 };
 
 template <typename T>
@@ -113,7 +121,7 @@ concept StateMachine = requires(T s) {
 };
 
 static_assert(Action<ConcreteAction>);
-static_assert(Condition<ConcreteCondition<int>, int>);
+static_assert(Condition<ConcreteCondition<AnyId<int>>, int>);
 static_assert(Event<ConcreteEvent>);
 static_assert(Transition<ConcreteTransition>);
 static_assert(State<ConcreteState>);

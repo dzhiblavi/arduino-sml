@@ -108,7 +108,7 @@ TEST(test_state_machine) {
             return stdlike::tuple{
                 state<S>.on(event<E>).to(state<int>),
                 state<S>.on(event<E>).run(ConcreteAction{}).to(state<int>),
-                state<S>.on(event<E>.when(ConcreteCondition<E>{})).to(state<int>)};
+                state<S>.on(event<E>.when(ConcreteCondition<AnyId<E>>{})).to(state<int>)};
         }
     };
 
