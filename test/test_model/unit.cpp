@@ -63,7 +63,7 @@ TEST(test_transition_make_try_execute) {
     bool run = GENERATE(false, true);
     auto cond = [&](auto, auto) { return run; };
     auto t = state<S>.on(event<E>.when(cond));
-    TEST_ASSERT_EQUAL(run, t.tryExecute(E{}));
+    TEST_ASSERT_EQUAL(run, t.tryExecute(S{}, E{}));
 }
 
 TEST(test_transition_to_valid) {
@@ -86,7 +86,7 @@ TEST(test_transition_run_runs) {
     int called = 0;
     auto cb = [&](auto, auto) { ++called; };
     auto t = state<S>.on(event<E>).run(cb);
-    t.tryExecute(E{});
+    t.tryExecute(S{}, E{});
     TEST_ASSERT_EQUAL(1, called);
 }
 
@@ -94,7 +94,7 @@ TEST(test_transition_run_chain_runs) {
     int called = 0;
     auto cb = [&](auto, auto) { ++called; };
     auto t = state<S>.on(event<E>).run(cb).run(cb).run(cb);
-    t.tryExecute(E{});
+    t.tryExecute(S{}, E{});
     TEST_ASSERT_EQUAL(3, called);
 }
 

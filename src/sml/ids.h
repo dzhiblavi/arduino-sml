@@ -31,6 +31,16 @@ struct IsAnyIdI<sml::AnyId<Ids...>> : stdlike::true_type {};
 template <typename Id>
 concept IsAnyId = IsAnyIdI<Id>::value;
 
+template <typename Id>
+struct Ids {
+    using type = tl::List<Id>;
+};
+
+template <typename... Is>
+struct Ids<AnyId<Is...>> {
+    using type = tl::List<Is...>;
+};
+
 }  // namespace traits
 
 }  // namespace sml

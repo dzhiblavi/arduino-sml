@@ -53,12 +53,13 @@ struct To : Mixin<To<T, D>> {
         return To<T, Dest>{stdlike::move(parent_)};
     }
 
-    bool tryExecute(const typename Event::Id& id) {
+    template <typename SId>
+    bool tryExecute(SId sid, const typename Event::Id& eid) {
         if constexpr (stdlike::same_as<typename Dst::Id, BypassStateId>) {
-            parent_.tryExecute(id);
+            parent_.tryExecute(sid, eid);
             return false;
         } else {
-            return parent_.tryExecute(id);
+            return parent_.tryExecute(sid, eid);
         }
     }
 
@@ -75,12 +76,13 @@ struct Run : Mixin<Run<T, A>> {
 
     Run(T parent, A action) : parent_{stdlike::move(parent)}, action_{stdlike::move(action)} {}
 
-    bool tryExecute(const typename Event::Id& id) {
-        if (!parent_.tryExecute(id)) {
+    template <typename SId>
+    bool tryExecute(SId sid, const typename Event::Id& eid) {
+        if (!parent_.tryExecute(sid, eid)) {
             return false;
         }
 
-        action_(typename Src::Id{}, id);
+        action_(sid, eid);
         return true;
     }
 
@@ -98,8 +100,9 @@ struct Make : Mixin<Make<S, E>> {
 
     explicit Make(E event) : event_{stdlike::move(event)} {}
 
-    bool tryExecute(const typename E::Id& id) {
-        return event_.match(typename Src::Id{}, id);
+    template <typename SId>
+    bool tryExecute(SId sid, const typename Event::Id& eid) {
+        return event_.match(sid, eid);
     }
 
  private:
@@ -115,8 +118,9 @@ struct Replace : Mixin<Replace<T, NewSrc, NewDst>> {
 
     explicit Replace(T parent) : parent_{stdlike::move(parent)} {}
 
-    bool tryExecute(const typename Event::Id& id) {
-        return parent_.tryExecute(id);
+    template <typename SId>
+    bool tryExecute(SId sid, const typename Event::Id& eid) {
+        return parent_.tryExecute(sid, eid);
     }
 
  private:

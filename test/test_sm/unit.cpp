@@ -276,7 +276,7 @@ TEST_F(t_sm, test_sm_wildcard_state) {
                     ++c1;
                 }),
 
-                any<>.on(event<int>).run([&](AnyId<>, auto) { ++c2; }));
+                any<>.on(event<int>).run([&](S1, auto) { ++c2; }));
         }
 
         int& c1;

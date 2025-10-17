@@ -39,7 +39,7 @@ int accept(const EId& id, EvTrTuple& transitions) {
 
         if constexpr (transition_src_matches) {
             Tr& transition = stdlike::get<TrIdx>(transitions);
-            if (transition.tryExecute(id)) {
+            if (transition.template tryExecute<SrcId>(SrcId{}, id)) {
                 using Dst = typename Tr::Dst;
 
                 if constexpr (stdlike::same_as<void, Dst>) {

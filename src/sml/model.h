@@ -70,7 +70,9 @@ struct ConcreteTransition {
     ConcreteTransition operator|(Action auto);
     ConcreteTransition to(State auto);
     ConcreteTransition operator=(State auto);  // NOLINT
-    bool tryExecute(const typename Event::Id&);
+
+    template <typename SId>
+    bool tryExecute(SId, const typename Event::Id&);
 };
 
 template <typename T>
@@ -83,7 +85,9 @@ concept Transition = requires(T t, ConcreteAction a, ConcreteState s) {
     { stdlike::move(t) | a };    /*-> Transition;*/
     { stdlike::move(t).to(s) };  /*-> Transition;*/
     { stdlike::move(t) = s };    /*-> Transition;*/
-    { t.tryExecute(stdlike::declval<const typename T::Event::Id&>()) } -> stdlike::same_as<bool>;
+    {
+        t.tryExecute(int{}, stdlike::declval<const typename T::Event::Id&>())
+    } -> stdlike::same_as<bool>;
 };
 
 template <typename T>

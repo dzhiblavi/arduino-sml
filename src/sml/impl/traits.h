@@ -8,8 +8,8 @@
 
 namespace sml::impl::traits {
 
-template <StateMachine M, tl::IsList AllStateUIds>
-struct MachinesStateUIds {
+template <StateMachine M, tl::IsList UIds>
+struct FilterUIdsByMachine {
     struct Pred {
         template <RefUId UId>
         static constexpr bool test() {
@@ -17,7 +17,7 @@ struct MachinesStateUIds {
         }
     };
 
-    using type = tl::Filter<Pred, AllStateUIds>;
+    using type = tl::Filter<Pred, UIds>;
 };
 
 template <typename UId, tl::IsList AllStateUIds>
@@ -31,17 +31,29 @@ struct AllUIdsAnyAware<impl::RefUId<M, AnyId<Ids...>>, AllStateUIds> {
     using type = tl::List<impl::RefUId<M, Ids>...>;
 };
 
-template <StateMachine M, typename AllStateUIds>
-struct AllUIdsAnyAware<impl::RefUId<M, AnyId<>>, AllStateUIds> {
+template <StateMachine M, typename UIds>
+struct AllUIdsAnyAware<impl::RefUId<M, AnyId<>>, UIds> {
     // Get UIds that belong to said state machine
-    using MachinesStateUIds = typename MachinesStateUIds<M, AllStateUIds>::type;
+    using MachinesStateUIds = typename FilterUIdsByMachine<M, UIds>::type;
+
+    template <RefUId UId>
+    struct Map {
+        using Ids = typename sml::traits::Ids<typename UId::Id>::type;  // get all ids (see AnyId)
+
+        struct Mapper {
+            template <typename Id>
+            using Map = impl::RefUId<M, Id>;
+        };
+
+        using type = tl::Map<Mapper, Ids>;  // list of RefUIds
+    };
 
     struct Mapper {
         template <RefUId UId>
-        using Map = impl::RefUId<M, typename UId::Id>;
+        using Map = typename Map<UId>::type;  // list of RefUIds
     };
 
-    using type = tl::Map<Mapper, MachinesStateUIds>;
+    using type = tl::Unique<tl::Flatten<tl::Map<Mapper, MachinesStateUIds>>>;
 };
 
 template <StateMachine M>
