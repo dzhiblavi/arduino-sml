@@ -8,6 +8,7 @@ struct OnEnterEventId {};
 struct OnExitEventId {};
 
 struct TerminalStateId {};
+struct BypassStateId {};
 
 template <typename... TIds>
 struct AnyId {

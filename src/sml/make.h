@@ -9,8 +9,10 @@ namespace sml {
 template <typename Id>
 constexpr State auto state = impl::state::Make<Id, Id>{};
 
+inline constexpr State auto bypass = state<impl::BypassStateId>;
+
 template <typename... Ids>
-inline constexpr auto any = state<impl::AnyId<Ids...>>;
+constexpr auto any = state<impl::AnyId<Ids...>>;
 
 template <StateMachine M>
 constexpr State auto enter =

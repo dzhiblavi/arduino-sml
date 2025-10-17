@@ -1,10 +1,17 @@
 #pragma once
 
+#include "sml/impl/ids.h"
 #include "sml/model.h"
 
 namespace sml::impl {
 
 namespace transition {
+
+template <typename T, Action A>
+struct Run;
+
+template <typename T, State D>
+struct To;
 
 template <typename Self>
 struct Mixin {
@@ -17,10 +24,20 @@ struct Mixin {
     auto operator|(A action) && {
         return stdlike::move(*static_cast<Self*>(this)).run(stdlike::move(action));
     }
-};
 
-template <typename T, Action A>
-struct Run;
+    template <Action Action>
+    auto run(Action a) && {
+        return Run<Self, Action>{
+            stdlike::move(*static_cast<Self*>(this)),
+            stdlike::move(a),
+        };
+    }
+
+    template <State Dst>
+    auto to(Dst) && {
+        return To<Self, Dst>{stdlike::move(*static_cast<Self*>(this))};
+    }
+};
 
 template <typename T, State D>
 struct To : Mixin<To<T, D>> {
@@ -31,18 +48,18 @@ struct To : Mixin<To<T, D>> {
 
     explicit To(T parent) : parent_{stdlike::move(parent)} {}
 
-    template <Action Action>
-    auto run(Action a) && {
-        return Run<To, Action>{stdlike::move(*this), stdlike::move(a)};
-    }
-
     template <State Dest>
     auto to(Dest) && {
         return To<T, Dest>{stdlike::move(parent_)};
     }
 
     bool tryExecute(const typename Event::Id& id) {
-        return parent_.tryExecute(id);
+        if constexpr (stdlike::same_as<typename Dst::Id, BypassStateId>) {
+            parent_.tryExecute(id);
+            return false;
+        } else {
+            return parent_.tryExecute(id);
+        }
     }
 
  private:
@@ -57,16 +74,6 @@ struct Run : Mixin<Run<T, A>> {
     using Mixin<Run<T, A>>::operator=;
 
     Run(T parent, A action) : parent_{stdlike::move(parent)}, action_{stdlike::move(action)} {}
-
-    template <Action Action>
-    auto run(Action a) && {
-        return Run<Run, Action>{stdlike::move(*this), stdlike::move(a)};
-    }
-
-    template <State Dst>
-    auto to(Dst) && {
-        return To<Run, Dst>{stdlike::move(*this)};
-    }
 
     bool tryExecute(const typename Event::Id& id) {
         if (!parent_.tryExecute(id)) {
@@ -91,16 +98,6 @@ struct Make : Mixin<Make<S, E>> {
 
     explicit Make(E event) : event_{stdlike::move(event)} {}
 
-    template <Action Action>
-    auto run(Action a) && {
-        return Run<Make, Action>{stdlike::move(*this), stdlike::move(a)};
-    }
-
-    template <State Dst>
-    auto to(Dst) && {
-        return To<Make, Dst>{stdlike::move(*this)};
-    }
-
     bool tryExecute(const typename E::Id& id) {
         return event_.match(typename Src::Id{}, id);
     }
@@ -117,16 +114,6 @@ struct Replace : Mixin<Replace<T, NewSrc, NewDst>> {
     using Mixin<Replace<T, Src, Dst>>::operator=;
 
     explicit Replace(T parent) : parent_{stdlike::move(parent)} {}
-
-    template <Action Action>
-    auto run(Action a) && {
-        return Run<Replace, Action>{stdlike::move(*this), stdlike::move(a)};
-    }
-
-    template <State Dst>
-    auto to(Dst) && {
-        return To<Replace, Dst>{stdlike::move(*this)};
-    }
 
     bool tryExecute(const typename Event::Id& id) {
         return parent_.tryExecute(id);
@@ -191,7 +178,10 @@ struct When : Mixin<When<E, C>> {
 
     template <Condition<Id> Cond>
     auto when(Cond condition) {
-        return When<When, Cond>{stdlike::move(*this), stdlike::move(condition)};
+        return When<When, Cond>{
+            stdlike::move(*this),
+            stdlike::move(condition),
+        };
     }
 
  private:
@@ -210,7 +200,10 @@ struct Make : Mixin<Make<TId>> {
 
     template <Condition<Id> C>
     auto when(C condition) const {
-        return When<Make, C>{stdlike::move(*this), stdlike::move(condition)};
+        return When<Make, C>{
+            stdlike::move(*this),
+            stdlike::move(condition),
+        };
     }
 };
 
