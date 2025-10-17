@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sml/impl/ids.h"
+#include "sml/ids.h"
 #include "sml/model.h"
 
 namespace sml::impl {

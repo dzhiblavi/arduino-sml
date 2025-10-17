@@ -2,7 +2,7 @@
 
 #include <supp/type_list.h>
 
-namespace sml::impl {
+namespace sml {
 
 struct OnEnterEventId {};
 struct OnExitEventId {};
@@ -26,11 +26,11 @@ template <typename Id>
 struct IsAnyIdI : stdlike::false_type {};
 
 template <typename... Ids>
-struct IsAnyIdI<sml::impl::AnyId<Ids...>> : stdlike::true_type {};
+struct IsAnyIdI<sml::AnyId<Ids...>> : stdlike::true_type {};
 
 template <typename Id>
 concept IsAnyId = IsAnyIdI<Id>::value;
 
 }  // namespace traits
 
-}  // namespace sml::impl
+}  // namespace sml

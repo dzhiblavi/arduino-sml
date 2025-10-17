@@ -52,7 +52,7 @@ TEST(test_all_event_ids) {
     };
 
     static_assert(stdlike::same_as<
-                  tl::List<E, sml::impl::OnExitEventId>,
+                  tl::List<E, sml::OnExitEventId>,
                   traits::AllEventIds<traits::Transitions<SM>>>);
 }
 

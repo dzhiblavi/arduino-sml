@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sml/impl/ids.h"
+#include "sml/ids.h"
 #include "sml/impl/traits.h"
 #include "sml/model.h"
 
@@ -26,7 +26,7 @@ int accept(const EId& id, EvTrTuple& transitions) {
         static constexpr bool transition_src_matches = [] {
             constexpr auto src_matches = stdlike::same_as<SUId, TrSrcUId>;
             constexpr auto sm_matches = stdlike::same_as<TrSrcSM, SrcSM>;
-            constexpr auto is_any_src_id = traits::IsAnyId<TrSrcId>;
+            constexpr auto is_any_src_id = sml::traits::IsAnyId<TrSrcId>;
 
             if constexpr (src_matches) {
                 return true;

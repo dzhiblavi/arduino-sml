@@ -272,11 +272,11 @@ TEST_F(t_sm, test_sm_wildcard_state) {
 
         auto transitions() {
             return make(
-                state<S1>.on(event<int>.when([](auto, int x) { return x != 0; })).run([&](auto, auto) {
+                state<S1>.on(event<int>.when([](S1, int x) { return x != 0; })).run([&](auto, auto) {
                     ++c1;
                 }),
 
-                any<>.on(event<int>).run([&](auto, auto) { ++c2; }));
+                any<>.on(event<int>).run([&](AnyId<>, auto) { ++c2; }));
         }
 
         int& c1;

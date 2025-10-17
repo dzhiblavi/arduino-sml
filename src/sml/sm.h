@@ -20,7 +20,7 @@ class SM {
         }(machine_.transitions())} {}
 
     void begin() {
-        feed(impl::OnEnterEventId{});
+        feed(OnEnterEventId{});
     }
 
     template <typename EId>
@@ -61,9 +61,9 @@ class SM {
         }
 
         if (dst_state != state_idx_) {
-            feed(impl::OnExitEventId{});
+            feed(OnExitEventId{});
             state_idx_ = dst_state;
-            feed(impl::OnEnterEventId{});
+            feed(OnEnterEventId{});
         }
 
         return true;

@@ -18,8 +18,8 @@ concept Action = requires(A a, AnyConstRef arg) {
 };
 
 template <typename C, typename EId>
-concept Condition = requires(C c, const EId& arg) {
-    { c(0, arg) } -> stdlike::same_as<bool>;
+concept Condition = requires(C c, const EId& arg, AnyConstRef s) {
+    { c(s, arg) } -> stdlike::same_as<bool>;
 };
 
 using ConcreteAction = decltype([](auto, auto) {});
@@ -29,9 +29,9 @@ using ConcreteCondition = decltype([](auto, const E&) { return false; });
 
 // clang-format off
 template <typename E>
-concept Event = requires(E e, ConcreteCondition<typename E::Id> c) {
+concept Event = requires(E e, ConcreteCondition<typename E::Id> c, AnyConstRef s) {
     typename E::Id;
-    { e.match(/*state id*/ 0, stdlike::declval<const typename E::Id&>()) } -> stdlike::same_as<bool>;
+    { e.match(s, stdlike::declval<const typename E::Id&>()) } -> stdlike::same_as<bool>;
     { stdlike::move(e).when(c) }; /*-> Event;*/
     { stdlike::move(e)[c] }; /*-> Event;*/
 };

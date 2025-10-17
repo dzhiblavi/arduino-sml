@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sml/impl/ids.h"
+#include "sml/ids.h"
 #include "sml/impl/make.h"
 #include "sml/impl/ref.h"
 
@@ -27,12 +27,12 @@ struct AllUIdsAnyAware {
 
 template <StateMachine M, typename... Ids, tl::IsList AllStateUIds>
 requires(sizeof...(Ids) > 0)
-struct AllUIdsAnyAware<impl::RefUId<M, impl::AnyId<Ids...>>, AllStateUIds> {
+struct AllUIdsAnyAware<impl::RefUId<M, AnyId<Ids...>>, AllStateUIds> {
     using type = tl::List<impl::RefUId<M, Ids>...>;
 };
 
 template <StateMachine M, typename AllStateUIds>
-struct AllUIdsAnyAware<impl::RefUId<M, impl::AnyId<>>, AllStateUIds> {
+struct AllUIdsAnyAware<impl::RefUId<M, AnyId<>>, AllStateUIds> {
     // Get UIds that belong to said state machine
     using MachinesStateUIds = typename MachinesStateUIds<M, AllStateUIds>::type;
 

@@ -1,4 +1,4 @@
-#include <sml/impl/ids.h>
+#include <sml/ids.h>
 
 #include <utest/utest.h>
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sml/impl/ids.h"
+#include "sml/ids.h"
 #include "sml/impl/make.h"
 #include "sml/impl/ref.h"
 
@@ -9,25 +9,24 @@ namespace sml {
 template <typename Id>
 constexpr State auto state = impl::state::Make<Id, Id>{};
 
-inline constexpr State auto bypass = state<impl::BypassStateId>;
+inline constexpr State auto bypass = state<BypassStateId>;
 
 template <typename... Ids>
-constexpr auto any = state<impl::AnyId<Ids...>>;
+constexpr auto any = state<AnyId<Ids...>>;
 
 template <StateMachine M>
 constexpr State auto enter =
     impl::state::Make<typename M::InitialId, impl::RefUId<M, typename M::InitialId>>{};
 
 template <StateMachine M>
-constexpr State auto exit =
-    impl::state::Make<impl::TerminalStateId, impl::RefUId<M, impl::TerminalStateId>>{};
+constexpr State auto exit = impl::state::Make<TerminalStateId, impl::RefUId<M, TerminalStateId>>{};
 
 template <typename Id>
 constexpr Event auto event = impl::event::Make<Id>{};
 
-[[maybe_unused]] static constexpr State auto x = state<impl::TerminalStateId>;
-[[maybe_unused]] static constexpr Event auto onEnter = event<impl::OnEnterEventId>;
-[[maybe_unused]] static constexpr Event auto onExit = event<impl::OnExitEventId>;
+[[maybe_unused]] static constexpr State auto x = state<TerminalStateId>;
+[[maybe_unused]] static constexpr Event auto onEnter = event<OnEnterEventId>;
+[[maybe_unused]] static constexpr Event auto onExit = event<OnExitEventId>;
 
 template <Transition... Ts>
 auto make(Ts... ts) {
