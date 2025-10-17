@@ -63,14 +63,9 @@ class Dispatcher {
     using EvTransitions = traits::FilterTransitionsByEventId<EId, Transitions>;
     using EvTransitionsTuple = tl::ApplyToTemplate<EvTransitions, stdlike::tuple>;
     using TransitionsTuple = tl::ApplyToTemplate<Transitions, stdlike::tuple>;
+    using OutboundStateUIds = traits::ExpandAnyIds<traits::SrcUIds<EvTransitions>, StateUIds>;
 
-    // get only states with matching outgoing transitions
-    // while collecting all uids that are specified in AnyIds
-    struct Mapper {
-        template <typename T>
-        using Map = traits::ExpandAnyIdsInUId<typename T::Src::UId, StateUIds>;
-    };
-    using OutboundStateUIds = tl::Unique<tl::Flatten<tl::Map<Mapper, EvTransitions>>>;
+    // number of outbound states: unique (M, Id)
     static constexpr size_t NumOutboundStates = tl::Size<OutboundStateUIds>;
 
     // construct an injection from all states to outbound states

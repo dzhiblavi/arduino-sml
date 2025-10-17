@@ -85,16 +85,16 @@ using ExpandAnyIdsInUId = typename ExpandAnyIdsInUIdI<UId, AllUIds>::type;
 
 // Similar to ExpandAnyIdsInUId, but accepts a list of UIds
 // and expands all of them
-template <tl::IsList UIds>
+template <tl::IsList UIds, tl::IsList AllUIds>
 struct ExpandAnyIdsI {
     struct Mapper {
         template <typename UId>
-        using Map = ExpandAnyIdsInUId<UId, UIds>;
+        using Map = ExpandAnyIdsInUId<UId, AllUIds>;
     };
     using type = tl::Unique<tl::Flatten<tl::Map<Mapper, UIds>>>;
 };
-template <tl::IsList UIds>
-using ExpandAnyIds = typename ExpandAnyIdsI<UIds>::type;
+template <tl::IsList UIds, tl::IsList AllUIds = UIds>
+using ExpandAnyIds = typename ExpandAnyIdsI<UIds, AllUIds>::type;
 
 // Retrieves a list of Event Ids from transitions list
 template <tl::IsList Transitions>
@@ -136,6 +136,19 @@ struct StateUIdsI {
 };
 template <typename InitUId, tl::IsList Transitions>
 using StateUIds = typename StateUIdsI<InitUId, Transitions>::type;
+
+// Retrieves all source State UIds from transitions list
+template <tl::IsList Transitions>
+struct SrcUIdsI {
+    struct Mapper {
+        template <Transition T>
+        using Map = typename T::Src::UId;
+    };
+
+    using type = tl::Unique<tl::Map<Mapper, Transitions>>;
+};
+template <tl::IsList Transitions>
+using SrcUIds = typename SrcUIdsI<Transitions>::type;
 
 // Retrieves a list of state machine's submachines.
 // The machine M itself is not included.
