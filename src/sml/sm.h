@@ -36,14 +36,21 @@ class SM {
     using InitialUId = impl::RefUId<TM, typename TM::InitialId>;
     using M = impl::traits::CombinedStateMachine<TM>;
     using Trs = impl::traits::Transitions<M>;
-    using UIds = impl::traits::ExpandAnyIds<impl::traits::StateUIds<InitialUId, Trs>>;
     using EIds = impl::traits::EventIds<Trs>;
+    using UIds = impl::traits::ExpandAnyIds<impl::traits::StateUIds<InitialUId, Trs>>;
+
+    struct AnyIdUIdPred {
+        template <typename UId>
+        static constexpr bool test() {
+            return traits::IsAnyId<typename UId::Id>;
+        }
+    };
+    static_assert(tl::empty(tl::filter<AnyIdUIdPred>(UIds{})), "implementation error");
 
     struct DispatcherMapper {
         template <typename EId>
         using Map = impl::Dispatcher<EId, Trs, UIds>;
     };
-
     using Dispatchers = tl::Map<DispatcherMapper, EIds>;
     using DispatchersTuple = tl::ApplyToTemplate<Dispatchers, stdlike::tuple>;
 

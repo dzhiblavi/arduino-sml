@@ -18,8 +18,8 @@ int accept(const EId& id, EvTrTuple& transitions) {
     } else {
         using Tr = stdlike::tuple_element_t<TrIdx, EvTrTuple>;
         using TrSrcUId = typename Tr::Src::UId;
-        using TrSrcSM = traits::UIdSubmachine<TrSrcUId>;
-        using SrcSM = traits::UIdSubmachine<SUId>;
+        using TrSrcSM = traits::SubmachineFromUId<TrSrcUId>;
+        using SrcSM = traits::SubmachineFromUId<SUId>;
         using SrcId = typename SUId::Id;
         using TrSrcId = typename TrSrcUId::Id;
 
@@ -60,7 +60,7 @@ int accept(const EId& id, EvTrTuple& transitions) {
 
 template <typename EId, tl::IsList Transitions, tl::IsList StateUIds>
 class Dispatcher {
-    using EvTransitions = typename traits::FilterTransitionsByEventId<EId, Transitions>::type;
+    using EvTransitions = traits::FilterTransitionsByEventId<EId, Transitions>;
     using EvTransitionsTuple = tl::ApplyToTemplate<EvTransitions, stdlike::tuple>;
     using TransitionsTuple = tl::ApplyToTemplate<Transitions, stdlike::tuple>;
 
@@ -68,7 +68,7 @@ class Dispatcher {
     // while collecting all uids that are specified in AnyIds
     struct Mapper {
         template <typename T>
-        using Map = typename traits::ExpandAnyIdsInUId<typename T::Src::UId, StateUIds>::type;
+        using Map = traits::ExpandAnyIdsInUId<typename T::Src::UId, StateUIds>;
     };
     using OutboundStateUIds = tl::Unique<tl::Flatten<tl::Map<Mapper, EvTransitions>>>;
     static constexpr size_t NumOutboundStates = tl::Size<OutboundStateUIds>;
@@ -80,6 +80,8 @@ class Dispatcher {
     explicit Dispatcher(TransitionsTuple& ts) : transitions_{extractEvTransitions(ts)} {
         stdlike::constexprFor<0, NumOutboundStates, 1>([this](auto I) {
             using UId = typename tl::At<I, OutboundStateUIds>::type;
+            static_assert(!sml::traits::IsAnyId<typename UId::Id>, "implementation error");
+
             handlers_[I] = &accept<0, EId, UId, StateUIds, EvTransitionsTuple>;
         });
     }

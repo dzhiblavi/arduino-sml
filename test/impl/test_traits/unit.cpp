@@ -215,63 +215,7 @@ TEST(test_combined_transitions) {
                         state::Make<TerminalStateId>>,
                     state::Make<S, RefUId<M1, S>>,
                     state::Make<TerminalStateId, RefUId<M1, TerminalStateId>>>>,
-            typename impl::traits::CombinedTransitions<M2>::type>);
-}
-
-TEST(test_combined_state_uids) {
-    struct M1 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple( //
-                state<S>.on(onExit).to(state<S>),
-                state<S>.on(onEnter).to(x)
-            );
-        }
-    };
-
-    struct M2 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple(
-                state<S>.on(onEnter).to(state<S>),
-                state<S>.on(onExit).to(enter<M1>),
-                exit<M1>.on(onEnter).to(state<S>));
-        }
-    };
-
-    using namespace sml::impl;
-
-    static_assert(stdlike::same_as<
-                  tl::List<RefUId<M2, S>, RefUId<M1, S>, RefUId<M1, TerminalStateId>>,
-                  typename impl::traits::CombinedStateUIds<M2>::type>);
-}
-
-TEST(test_combined_event_ids) {
-    struct M1 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple( //
-                state<S>.on(onExit).to(state<S>),
-                state<S>.on(onEnter).to(x)
-            );
-        }
-    };
-
-    struct M2 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple(
-                state<S>.on(onEnter).to(state<S>),
-                state<S>.on(onExit).to(enter<M1>),
-                exit<M1>.on(onEnter).to(state<S>));
-        }
-    };
-
-    using namespace sml::impl;
-
-    static_assert(stdlike::same_as<
-                  tl::List<OnExitEventId, OnEnterEventId>,
-                  typename impl::traits::CombinedEventIds<M2>::type>);
+            impl::traits::CombinedTransitions<M2>>);
 }
 
 TEST(test_combined_state_machine) {
@@ -298,9 +242,8 @@ TEST(test_combined_state_machine) {
     using M = impl::traits::CombinedStateMachine<M2>;
     using namespace sml::impl;
 
-    static_assert(stdlike::same_as<
-                  typename impl::traits::CombinedTransitions<M2>::type,
-                  impl::traits::Transitions<M>>);
+    static_assert(
+        stdlike::same_as<impl::traits::CombinedTransitions<M2>, impl::traits::Transitions<M>>);
 }
 
 }  // namespace sml

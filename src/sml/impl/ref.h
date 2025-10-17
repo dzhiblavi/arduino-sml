@@ -30,6 +30,19 @@ struct IsRefState : stdlike::false_type {};
 template <State S>
 struct IsRefState<S> : IsRefUId<typename S::UId> {};
 
+template <typename UId>
+struct SubmachineFromUIdI {
+    using type = void;
+};
+
+template <StateMachine M, typename Id>
+struct SubmachineFromUIdI<impl::RefUId<M, Id>> {
+    using type = M;
+};
+
+template <typename UId>
+using SubmachineFromUId = typename SubmachineFromUIdI<UId>::type;
+
 }  // namespace traits
 
 }  // namespace sml::impl
