@@ -5,6 +5,7 @@
 #include "sml/model.h"
 
 #include <stdlike/array.h>
+#include <stdlike/tuple.h>
 #include <supp/type_list.h>
 
 namespace sml::impl {
@@ -82,8 +83,8 @@ class Dispatcher {
     }
 
     int dispatch(int state_idx, const EId& id) {
-        state_idx = StateInjection[state_idx];
-        if (state_idx == size_t(-1)) {  // NOLINT
+        state_idx = static_cast<int>(StateInjection[state_idx]);
+        if (state_idx == -1) {  // NOLINT
             return -1;
         }
         return handlers_[state_idx](id, transitions_);

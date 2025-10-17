@@ -15,7 +15,7 @@ namespace traits {
 template <typename UId>
 concept RefUId = requires() {
     typename UId::Id;
-    StateMachine<typename UId::M>;
+    requires StateMachine<typename UId::M>;
 };
 
 template <typename UId>

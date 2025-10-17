@@ -157,11 +157,6 @@ namespace event {
 template <typename Self>
 struct Mixin {
     template <Condition<typename Self::Id> C>
-    auto operator[](C cond) && {
-        return stdlike::move(*static_cast<Self*>(this)).when(stdlike::move(cond));
-    }
-
-    template <Condition<typename Self::Id> C>
     auto operator[](C cond) const {
         return static_cast<const Self*>(this)->when(stdlike::move(cond));
     }
@@ -186,6 +181,11 @@ struct When : Mixin<When<E, C>> {
             stdlike::move(*this),
             stdlike::move(condition),
         };
+    }
+
+    template <Condition<Id> TC>
+    auto operator[](TC cond) && {
+        return stdlike::move(*this).when(stdlike::move(cond));
     }
 
  private:

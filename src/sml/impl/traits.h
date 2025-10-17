@@ -180,30 +180,30 @@ struct SubmachinesI {
 template <StateMachine M>
 using Submachines = typename SubmachinesI<M>::type;
 
+template <StateMachine M, typename S>
+struct MapState {
+    using Id = typename S::Id;
+    using UId = typename S::UId;
+    using RefUId = impl::RefUId<M, Id>;
+    static constexpr bool is_reference = IsRefUId<UId>::value;
+
+    using type = impl::state::Make<Id, stdlike::conditional_t<is_reference, UId, RefUId>>;
+};
+
+template <StateMachine M>
+struct MapState<M, void> {
+    using type = void;
+};
+
 // Marks all M's transitions' states using RefUId.
 // Does not touch states that are already RefUIds because they can be referencing
 // another submachine (i.e. exit/enter).
 template <StateMachine M>
 struct MarkedTransitionsI {
-    template <typename S>
-    struct MapState {
-        using Id = typename S::Id;
-        using UId = typename S::UId;
-        using RefUId = impl::RefUId<M, Id>;
-        static constexpr bool is_reference = IsRefUId<UId>::value;
-
-        using type = impl::state::Make<Id, stdlike::conditional_t<is_reference, UId, RefUId>>;
-    };
-
-    template <>
-    struct MapState<void> {
-        using type = void;
-    };
-
     template <Transition T>
     struct MapTransition {
-        using NewSrc = typename MapState<typename T::Src>::type;
-        using NewDst = typename MapState<typename T::Dst>::type;
+        using NewSrc = typename MapState<M, typename T::Src>::type;
+        using NewDst = typename MapState<M, typename T::Dst>::type;
         using type = impl::transition::Replace<T, NewSrc, NewDst>;
     };
 

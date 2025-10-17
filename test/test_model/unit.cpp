@@ -3,6 +3,8 @@
 
 #include <utest/utest.h>
 
+#include <stdlike/tuple.h>
+
 struct S {};
 struct E {};
 
@@ -103,10 +105,10 @@ TEST(test_state_machine) {
         using InitialId = S;
 
         auto transitions() {
-            return stdlike::tuple(
+            return stdlike::tuple{
                 state<S>.on(event<E>).to(state<int>),
                 state<S>.on(event<E>).run(ConcreteAction{}).to(state<int>),
-                state<S>.on(event<E>.when(ConcreteCondition<E>{})).to(state<int>));
+                state<S>.on(event<E>.when(ConcreteCondition<E>{})).to(state<int>)};
         }
     };
 
