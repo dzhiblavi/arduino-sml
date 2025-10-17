@@ -154,16 +154,8 @@ struct Make : Mixin<Make<TId, TUId>> {
 
 namespace event {
 
-template <typename Self>
-struct Mixin {
-    template <Condition<typename Self::Id> C>
-    auto operator[](C cond) const {
-        return static_cast<const Self*>(this)->when(stdlike::move(cond));
-    }
-};
-
 template <typename E, Condition<typename E::Id> C>
-struct When : Mixin<When<E, C>> {
+struct When {
     using Id = typename E::Id;
 
     When(E parent, C condition)
@@ -194,7 +186,7 @@ struct When : Mixin<When<E, C>> {
 };
 
 template <typename TId>
-struct Make : Mixin<Make<TId>> {
+struct Make {
     using Id = TId;
 
     template <typename SId>
@@ -208,6 +200,11 @@ struct Make : Mixin<Make<TId>> {
             stdlike::move(*this),
             stdlike::move(condition),
         };
+    }
+
+    template <Condition<Id> C>
+    auto operator[](C cond) const {
+        return this->when(stdlike::move(cond));
     }
 };
 

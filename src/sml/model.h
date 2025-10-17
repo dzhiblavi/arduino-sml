@@ -7,9 +7,12 @@ namespace sml {
 
 struct AnyConstRef {
     template <typename T>
-    operator const T&() {
-        return stdlike::declval<T>();
-    }
+    operator const T&();
+
+#if defined(SML_ESP8266)
+    template <typename T>
+    operator T();
+#endif
 };
 
 template <typename A>
@@ -25,7 +28,11 @@ concept Condition = requires(C c, const EId& arg, AnyConstRef s) {
 using ConcreteAction = decltype([](auto, auto) {});
 
 template <typename E>
-using ConcreteCondition = decltype([](auto, const E&) { return false; });
+struct ConcreteCondition {
+    bool operator()(auto, const E&) {
+        return false;
+    }
+};
 
 // clang-format off
 template <typename E>
