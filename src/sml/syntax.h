@@ -1,17 +1,15 @@
 #pragma once
 
-#include "sml/model.h"
+#include <utility>
 
 auto operator&&(auto a, auto b) {
-    return [a = std::move(a), b = std::move(b)](auto s, const auto& e) {
-        return a(s, e) && b(s, e);
-    };
+    return
+        [a = std::move(a), b = std::move(b)](auto s, const auto& e) { return a(s, e) && b(s, e); };
 }
 
 auto operator||(auto a, auto b) {
-    return [a = std::move(a), b = std::move(b)](auto s, const auto& e) {
-        return a(s, e) || b(s, e);
-    };
+    return
+        [a = std::move(a), b = std::move(b)](auto s, const auto& e) { return a(s, e) || b(s, e); };
 }
 
 auto operator!(auto a) {
