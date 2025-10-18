@@ -2,7 +2,6 @@
 
 #include "sml/ids.h"
 #include "sml/impl/traits.h"
-#include "sml/model.h"
 
 #include <stdlike/array.h>
 #include <stdlike/tuple.h>
@@ -10,17 +9,18 @@
 
 namespace sml::impl {
 
-template <size_t TrIdx, typename EId, typename SrcSpec, typename StateSpecs, typename EvTrTuple>
-int accept(const EId& id, EvTrTuple& transitions) {
-    static constexpr size_t NumTransitions = stdlike::tuple_size_v<EvTrTuple>;
+template <size_t TrIdx, typename EId, typename SrcSpec, typename StateSpecs, typename TrTuple>
+int accept(const EId& id, TrTuple& transitions) {
+    static constexpr size_t NumTransitions = stdlike::tuple_size_v<TrTuple>;
 
     if constexpr (TrIdx == NumTransitions) {
         return -1;
     } else {
-        using Tr = stdlike::tuple_element_t<TrIdx, EvTrTuple>;
+        using Tr = stdlike::tuple_element_t<TrIdx, TrTuple>;
 
         using TrSrcTag = typename Tr::Src::Tag;
         using TrSrcIds = typename Tr::Src::Ids;
+        using TrEventIds = typename Tr::Event::Ids;
 
         using SrcTag = typename SrcSpec::Tag;
         using SrcId = typename SrcSpec::Id;
@@ -35,14 +35,16 @@ int accept(const EId& id, EvTrTuple& transitions) {
             traits::StateSpec<typename Dst::Id, typename Dst::Tag>
         >;
 
-        static constexpr bool transition_src_matches = [] {
+        static constexpr bool transition_matches = [] {
             constexpr auto tag_matches = stdlike::same_as<TrSrcTag, SrcTag>;
             constexpr auto id_matches = tl::Empty<TrSrcIds> || tl::Contains<TrSrcIds, SrcId>;
-            return tag_matches && id_matches;
+            constexpr auto event_matches = tl::Empty<TrEventIds> || tl::Contains<TrEventIds, EId>;
+            return tag_matches && id_matches && event_matches;
         }();
 
-        if constexpr (transition_src_matches) {
+        if constexpr (transition_matches) {
             Tr& t = stdlike::get<TrIdx>(transitions);
+
             if (t.template operator()<SrcId, EId>(SrcId{}, id)) {
                 if constexpr (!bypass) {
                     static_assert(tl::Contains<StateSpecs, DstSpec>);
@@ -63,8 +65,6 @@ class Dispatcher {
     using TransitionsTuple = tl::ApplyToTemplate<Transitions, stdlike::tuple>;
 
     using EvTransitions = traits::FilterTransitionsByEventId<EId, Transitions>;
-    using EvTransitionsTuple = tl::ApplyToTemplate<EvTransitions, stdlike::tuple>;
-
     using OutboundStateSpecs = traits::GetSrcSpecs<EvTransitions, StateSpecs>;
 
     // number of outbound states: unique (M, Id)
@@ -74,10 +74,10 @@ class Dispatcher {
     static constexpr auto StateInjection = tl::injection(StateSpecs{}, OutboundStateSpecs{});
 
  public:
-    explicit Dispatcher(TransitionsTuple& ts) : transitions_{extractEvTransitions(ts)} {
+    explicit Dispatcher(TransitionsTuple* ts) : transitions_{ts} {
         stdlike::constexprFor<0, NumOutboundStates, 1>([this](auto I) {
             using Spec = tl::At<I, OutboundStateSpecs>;
-            handlers_[I] = &accept<0, EId, Spec, StateSpecs, EvTransitionsTuple>;
+            handlers_[I] = &accept<0, EId, Spec, StateSpecs, TransitionsTuple>;
         });
     }
 
@@ -86,23 +86,13 @@ class Dispatcher {
         if (state_idx == -1) {  // NOLINT
             return -1;
         }
-        return handlers_[state_idx](id, transitions_);
+        return handlers_[state_idx](id, *transitions_);
     }
 
  private:
-    EvTransitionsTuple extractEvTransitions(TransitionsTuple& ts) {
-        return tl::apply(
-            [&]<Transition... T>(tl::Type<T>...) {
-                return EvTransitionsTuple{
-                    stdlike::move(stdlike::get<tl::Find<T, Transitions>>(ts))...,
-                };
-            },
-            EvTransitions{});
-    }
+    using HandlerFunc = int (*)(const EId&, TransitionsTuple&);
 
-    using HandlerFunc = int (*)(const EId&, EvTransitionsTuple&);
-
-    EvTransitionsTuple transitions_;
+    TransitionsTuple* transitions_;
     stdlike::array<HandlerFunc, NumOutboundStates> handlers_;
 };
 

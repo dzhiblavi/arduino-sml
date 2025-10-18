@@ -151,6 +151,8 @@ TEST_F(t_sm, test_sm_example_with_syntax) {
     TEST_ASSERT_EQUAL(1, m3);
     TEST_ASSERT_TRUE(sm.feed('y'));  // S1 -> S1, c4
     TEST_ASSERT_EQUAL(3, m4);
+
+    LINFO("SM size: %d", sizeof(SM<M>));
 }
 
 }  // namespace sml

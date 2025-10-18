@@ -11,13 +11,14 @@ class SM {
     template <StateMachine... Machines>
     explicit SM(Machines&&... machines)
         : machine_{stdlike::move(machines)...}
-        , dispatchers_{[](auto ts) {
+        , transitions_{machine_.transitions()}
+        , dispatchers_{[this] {
             return tl::apply(
                 [&]<typename... EId>(tl::Type<EId>...) {
-                    return DispatchersTuple{impl::Dispatcher<EId, Trs>(ts)...};
+                    return DispatchersTuple{impl::Dispatcher<EId, Trs>(&transitions_)...};
                 },
                 EIds{});
-        }(machine_.transitions())} {}
+        }()} {}
 
     void begin() {
         feed(OnEnterEventId{});
@@ -36,6 +37,7 @@ class SM {
     using InitialSpec = impl::traits::StateSpec<typename TM::InitialId, TM>;
     using M = impl::traits::CombinedStateMachine<TM>;
     using Trs = impl::traits::Transitions<M>;
+    using TrsTuple = impl::traits::TransitionsTuple<M>;
     using EIds = impl::traits::GetEventIds<Trs>;
     using StateSpecs = impl::traits::GetStateSpecs<Trs>;
 
@@ -69,6 +71,7 @@ class SM {
     }
 
     M machine_;
+    TrsTuple transitions_;
     DispatchersTuple dispatchers_;
     int state_idx_ = static_cast<int>(tl::Find<InitialSpec, StateSpecs>);
 };
