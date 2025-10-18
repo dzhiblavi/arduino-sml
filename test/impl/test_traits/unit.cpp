@@ -50,9 +50,9 @@ TEST(test_tag_transitions) {
     using Ts = impl::traits::Transitions<M3>;
     using Tagged = impl::traits::TagTransitions<Ts, float>;
 
-    using T0 = typename tl::At<0, Tagged>::type;
-    using T1 = typename tl::At<1, Tagged>::type;
-    using T2 = typename tl::At<2, Tagged>::type;
+    using T0 = tl::At<0, Tagged>;
+    using T1 = tl::At<1, Tagged>;
+    using T2 = tl::At<2, Tagged>;
 
     static_assert(stdlike::same_as<float, typename T0::Src::Tag>);
     static_assert(stdlike::same_as<float, typename T1::Src::Tag>);

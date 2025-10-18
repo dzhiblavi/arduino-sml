@@ -76,7 +76,7 @@ class Dispatcher {
  public:
     explicit Dispatcher(TransitionsTuple& ts) : transitions_{extractEvTransitions(ts)} {
         stdlike::constexprFor<0, NumOutboundStates, 1>([this](auto I) {
-            using Spec = typename tl::At<I, OutboundStateSpecs>::type;
+            using Spec = tl::At<I, OutboundStateSpecs>;
             handlers_[I] = &accept<0, EId, Spec, StateSpecs, EvTransitionsTuple>;
         });
     }
