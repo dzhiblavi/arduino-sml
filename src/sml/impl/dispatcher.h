@@ -10,7 +10,7 @@
 
 namespace sml::impl {
 
-template <size_t TrIdx, typename EId, typename SUId, typename StateUIds, typename EvTrTuple>
+template <size_t TrIdx, typename EId, typename SrcSpec, typename StateSpecs, typename EvTrTuple>
 int accept(const EId& id, EvTrTuple& transitions) {
     static constexpr size_t NumTransitions = stdlike::tuple_size_v<EvTrTuple>;
 
@@ -18,67 +18,66 @@ int accept(const EId& id, EvTrTuple& transitions) {
         return -1;
     } else {
         using Tr = stdlike::tuple_element_t<TrIdx, EvTrTuple>;
-        using TrSrcUId = typename Tr::Src::UId;
-        using TrSrcSM = traits::SubmachineFromUId<TrSrcUId>;
-        using SrcSM = traits::SubmachineFromUId<SUId>;
-        using SrcId = typename SUId::Id;
-        using TrSrcId = typename TrSrcUId::Id;
+
+        using TrSrcTag = typename Tr::Src::Tag;
+        using TrSrcIds = typename Tr::Src::Ids;
+
+        using SrcTag = typename SrcSpec::Tag;
+        using SrcId = typename SrcSpec::Id;
+
+        using Dst = typename Tr::Dst;
+        using DstId = typename Dst::Id;
+
+        static constexpr bool bypass = stdlike::same_as<BypassStateId, DstId>;
+        using DstSpec = stdlike::conditional_t< //
+            stdlike::same_as<KeepStateId, typename Dst::Id>,
+            SrcSpec,
+            traits::StateSpec<typename Dst::Id, typename Dst::Tag>
+        >;
 
         static constexpr bool transition_src_matches = [] {
-            constexpr auto src_matches = stdlike::same_as<SUId, TrSrcUId>;
-            constexpr auto sm_matches = stdlike::same_as<TrSrcSM, SrcSM>;
-            constexpr auto is_any_src_id = sml::traits::IsAnyId<TrSrcId>;
-
-            if constexpr (src_matches) {
-                return true;
-            } else if constexpr (sm_matches && is_any_src_id) {
-                return TrSrcId::template matches<SrcId>();
-            } else {
-                return false;
-            }
+            constexpr auto tag_matches = stdlike::same_as<TrSrcTag, SrcTag>;
+            constexpr auto id_matches = tl::Empty<TrSrcIds> || tl::Contains<TrSrcIds, SrcId>;
+            return tag_matches && id_matches;
         }();
 
         if constexpr (transition_src_matches) {
-            Tr& transition = stdlike::get<TrIdx>(transitions);
-            if (transition.template tryExecute<SrcId, EId>(SrcId{}, id)) {
-                using Dst = typename Tr::Dst;
-
-                if constexpr (stdlike::same_as<void, Dst>) {
-                    static_assert(tl::Contains<StateUIds, SUId>);
-                    return tl::Find<SUId, StateUIds>;
-                } else {
-                    static_assert(tl::Contains<StateUIds, typename Dst::UId>);
-                    return tl::Find<typename Dst::UId, StateUIds>;
+            Tr& t = stdlike::get<TrIdx>(transitions);
+            if (t.template operator()<SrcId, EId>(SrcId{}, id)) {
+                if constexpr (!bypass) {
+                    static_assert(tl::Contains<StateSpecs, DstSpec>);
+                    return tl::Find<DstSpec, StateSpecs>;
                 }
             }
 
-            return accept<TrIdx + 1, EId, SUId, StateUIds>(id, transitions);
+            return accept<TrIdx + 1, EId, SrcSpec, StateSpecs>(id, transitions);
         } else {
-            return accept<TrIdx + 1, EId, SUId, StateUIds>(id, transitions);
+            return accept<TrIdx + 1, EId, SrcSpec, StateSpecs>(id, transitions);
         }
     }
 }
 
-template <typename EId, tl::IsList Transitions, tl::IsList StateUIds>
+template <typename EId, tl::IsList Transitions>
 class Dispatcher {
+    using StateSpecs = traits::GetStateSpecs<Transitions>;
+    using TransitionsTuple = tl::ApplyToTemplate<Transitions, stdlike::tuple>;
+
     using EvTransitions = traits::FilterTransitionsByEventId<EId, Transitions>;
     using EvTransitionsTuple = tl::ApplyToTemplate<EvTransitions, stdlike::tuple>;
-    using TransitionsTuple = tl::ApplyToTemplate<Transitions, stdlike::tuple>;
-    using OutboundStateUIds = traits::ExpandAnyIds<traits::SrcUIds<EvTransitions>, StateUIds>;
+
+    using OutboundStateSpecs = traits::GetSrcSpecs<EvTransitions, StateSpecs>;
 
     // number of outbound states: unique (M, Id)
-    static constexpr size_t NumOutboundStates = tl::Size<OutboundStateUIds>;
+    static constexpr size_t NumOutboundStates = tl::Size<OutboundStateSpecs>;
 
     // construct an injection from all states to outbound states
-    static constexpr auto StateInjection = tl::injection(StateUIds{}, OutboundStateUIds{});
+    static constexpr auto StateInjection = tl::injection(StateSpecs{}, OutboundStateSpecs{});
 
  public:
     explicit Dispatcher(TransitionsTuple& ts) : transitions_{extractEvTransitions(ts)} {
         stdlike::constexprFor<0, NumOutboundStates, 1>([this](auto I) {
-            using UId = typename tl::At<I, OutboundStateUIds>::type;
-            static_assert(!sml::traits::IsAnyId<typename UId::Id>, "implementation error");
-
-            handlers_[I] = &accept<0, EId, UId, StateUIds, EvTransitionsTuple>;
+            using Spec = typename tl::At<I, OutboundStateSpecs>::type;
+            handlers_[I] = &accept<0, EId, Spec, StateSpecs, EvTransitionsTuple>;
         });
     }
 

@@ -3,247 +3,190 @@
 
 #include <utest/utest.h>
 
-struct S {};
-struct E {};
-
 namespace sml {
 
-auto t1 = state<S>.on(event<E>).to(state<int>);
-auto t2 = state<S>.on(event<E>).run(ConcreteAction{}).to(state<int>);
-auto t3 = state<S>.on(event<E>.when(ConcreteCondition<AnyId<E>>{})).to(state<int>);
+struct M1 {
+    using InitialId = int;
 
-using T1 = decltype(t1);
-using T2 = decltype(t2);
-using T3 = decltype(t3);
+    auto transitions() {
+        return table{
+            src<float> + ev<float> = dst<char>,
+        };
+    }
+};
 
-TEST(test_transitions_tuple) {
-    struct SM {
-        using InitialId = S;
+struct M2 {
+    using InitialId = int;
 
-        auto transitions() {
-            return stdlike::tuple(t1, t2, t3);
-        }
-    };
+    auto transitions() {
+        return table{
+            src<> + ev<> = enter<M1>,
+        };
+    }
+};
 
-    using TrTuple = impl::traits::TransitionsTuple<SM>;
-    static_assert(stdlike::same_as<stdlike::tuple<T1, T2, T3>, TrTuple>);
-}
+struct M3 {
+    using InitialId = int;
 
-TEST(test_transitions) {
-    struct SM {
-        using InitialId = S;
+    auto transitions() {
+        return table{
+            src<float> + ev<float> = bypass,
+            src<int> + ev<int> = enter<M2>,
+            src<int> + ev<> = enter<M1>,
+        };
+    }
+};
 
-        auto transitions() {
-            return stdlike::tuple(t1, t2, t3);
-        }
-    };
-
-    using TrTuple = impl::traits::Transitions<SM>;
-    static_assert(stdlike::same_as<tl::List<T1, T2, T3>, TrTuple>);
-}
-
-TEST(test_event_ids) {
-    struct SM {
-        using InitialId = S;
-
-        auto transitions() {
-            return stdlike::tuple(t1, t2, state<S>.on(onExit));
-        }
-    };
-
-    static_assert(stdlike::same_as<
-                  tl::List<E, sml::OnExitEventId>,
-                  impl::traits::EventIds<impl::traits::Transitions<SM>>>);
-}
-
-TEST(test_all_state_uids) {
-    struct SM {
-        using InitialId = S;
-
-        auto transitions() {
-            return stdlike::tuple(t1, t2, state<S>.on(onExit));
-        }
-    };
-
-    static_assert(stdlike::same_as<
-                  tl::List<sml::impl::RefUId<SM, S>, int, S>,
-                  impl::traits::StateUIds<impl::RefUId<SM, S>, impl::traits::Transitions<SM>>>);
-}
+static_assert(StateMachine<M1>);
+static_assert(StateMachine<M2>);
+static_assert(StateMachine<M3>);
 
 TEST(test_submachines) {
-    struct M1 {
-        using InitialId = S;
-
-        auto transitions() {
-            return stdlike::tuple(  //
-                state<S>.on(onEnter).to(state<S>));
-        }
-    };
-    static_assert(stdlike::same_as<tl::List<>, impl::traits::Submachines<M1>>);
-
-    struct M2 {
-        using InitialId = S;
-
-        auto transitions() {
-            return stdlike::tuple(//
-                state<S>.on(onEnter).to(state<S>),
-                state<S>.on(onExit).to(enter<M1>)
-            );
-        }
-    };
-    static_assert(stdlike::same_as<tl::List<M1>, impl::traits::Submachines<M2>>);
-
-    struct M3 {
-        using InitialId = S;
-
-        auto transitions() {
-            return stdlike::tuple( //
-                state<S>.on(onEnter).to(enter<M1>),
-                state<S>.on(onExit).to(enter<M2>)
-            );
-        }
-    };
-    static_assert(stdlike::same_as<tl::List<M1, M2>, impl::traits::Submachines<M3>>);
+    using SMs = impl::traits::Submachines<M3>;
+    static_assert(stdlike::same_as<tl::List<M2, M1>, SMs>);
 }
 
-TEST(test_marked_transitions) {
-    struct M1 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple();
-        }
-    };
+TEST(test_tag_transitions) {
+    using Ts = impl::traits::Transitions<M3>;
+    using Tagged = impl::traits::TagTransitions<Ts, float>;
 
-    struct M2 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple(
-                state<S>.on(onEnter).to(state<S>),
-                state<S>.on(onExit).to(enter<M1>),
-                exit<M1>.on(onEnter).to(state<S>));
-        }
-    };
+    using T0 = typename tl::At<0, Tagged>::type;
+    using T1 = typename tl::At<1, Tagged>::type;
+    using T2 = typename tl::At<2, Tagged>::type;
 
-    using namespace sml::impl;
+    static_assert(stdlike::same_as<float, typename T0::Src::Tag>);
+    static_assert(stdlike::same_as<float, typename T1::Src::Tag>);
+    static_assert(stdlike::same_as<float, typename T2::Src::Tag>);
 
-    static_assert(
-        stdlike::same_as<
-            tl::List<
-                transition::Replace<
-                    transition::To<
-                        transition::Make<state::Make<S>, event::Make<OnEnterEventId>>,
-                        state::Make<S>>,
-                    state::Make<S, RefUId<M2, S>>,
-                    state::Make<S, RefUId<M2, S>>>,
-                transition::Replace<
-                    transition::To<
-                        transition::Make<state::Make<S>, event::Make<OnExitEventId>>,
-                        state::Make<S, RefUId<M1, S>>>,
-                    state::Make<S, RefUId<M2, S>>,
-                    state::Make<S, RefUId<M1, S>>>,
-                transition::Replace<
-                    transition::To<
-                        transition::Make<
-                            state::Make<TerminalStateId, RefUId<M1, TerminalStateId>>,
-                            event::Make<OnEnterEventId>>,
-                        state::Make<S>>,
-                    state::Make<TerminalStateId, RefUId<M1, TerminalStateId>>,
-                    state::Make<S, RefUId<M2, S>>>>,
-            impl::traits::MarkedTransitions<M2>>);
+    static_assert(stdlike::same_as<float, typename T0::Dst::Tag>);
+    static_assert(stdlike::same_as<M2, typename T1::Dst::Tag>);
+    static_assert(stdlike::same_as<M1, typename T2::Dst::Tag>);
 }
 
 TEST(test_combined_transitions) {
-    struct M1 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple( //
-                state<S>.on(onExit).to(state<S>),
-                state<S>.on(onEnter).to(x)
-            );
-        }
-    };
-
-    struct M2 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple(
-                state<S>.on(onEnter).to(state<S>),
-                state<S>.on(onExit).to(enter<M1>),
-                exit<M1>.on(onEnter).to(state<S>));
-        }
-    };
-
+    using Ts = impl::traits::CombinedTransitions<M3>;
     using namespace sml::impl;
-
     static_assert(
         stdlike::same_as<
             tl::List<
-                // M2: state<S>().on(onEnter).to(state<S>())
-                transition::Replace<
-                    transition::To<
-                        transition::Make<state::Make<S>, event::Make<OnEnterEventId>>,
-                        state::Make<S>>,
-                    state::Make<S, RefUId<M2, S>>,
-                    state::Make<S, RefUId<M2, S>>>,
-                // M2: state<S>().on(onExit).to(enter<M1>())
-                transition::Replace<
-                    transition::To<
-                        transition::Make<state::Make<S>, event::Make<OnExitEventId>>,
-                        state::Make<S, RefUId<M1, S>>>,
-                    state::Make<S, RefUId<M2, S>>,
-                    state::Make<S, RefUId<M1, S>>>,
-                // M2: exit<M1>().on(onEnter).to(state<S>())
-                transition::Replace<
+                transition::Tagged<
                     transition::To<
                         transition::Make<
-                            state::Make<TerminalStateId, RefUId<M1, TerminalStateId>>,
-                            event::Make<OnEnterEventId>>,
-                        state::Make<S>>,
-                    state::Make<TerminalStateId, RefUId<M1, TerminalStateId>>,
-                    state::Make<S, RefUId<M2, S>>>,
-                // M1: state<S>().on(onExit).to(state<S>())
-                transition::Replace<
+                            state::Src<void, float>,
+                            state::Dst<void, sml::KeepStateId>,
+                            event::Make<float>>,
+                        state::Dst<void, sml::BypassStateId>>,
+                    sml::M3>,
+                transition::Tagged<
                     transition::To<
-                        transition::Make<state::Make<S>, event::Make<OnExitEventId>>,
-                        state::Make<S>>,
-                    state::Make<S, RefUId<M1, S>>,
-                    state::Make<S, RefUId<M1, S>>>,
-                // M1: state<S>().on(onEnter).to(x)
-                transition::Replace<
+                        transition::Make<
+                            state::Src<void, int>,
+                            state::Dst<void, sml::KeepStateId>,
+                            event::Make<int>>,
+                        state::Dst<sml::M2, int>>,
+                    sml::M3>,
+                transition::Tagged<
                     transition::To<
-                        transition::Make<state::Make<S>, event::Make<OnEnterEventId>>,
-                        state::Make<TerminalStateId>>,
-                    state::Make<S, RefUId<M1, S>>,
-                    state::Make<TerminalStateId, RefUId<M1, TerminalStateId>>>>,
-            impl::traits::CombinedTransitions<M2>>);
+                        transition::Make<
+                            state::Src<void, int>,
+                            state::Dst<void, sml::KeepStateId>,
+                            event::Make<>>,
+                        state::Dst<sml::M1, int>>,
+                    sml::M3>,
+                transition::Tagged<
+                    transition::To<
+                        transition::Make<
+                            state::Src<void>,
+                            state::Dst<void, sml::KeepStateId>,
+                            event::Make<>>,
+                        state::Dst<sml::M1, int>>,
+                    sml::M2>,
+                transition::Tagged<
+                    transition::To<
+                        transition::Make<
+                            state::Src<void, float>,
+                            state::Dst<void, sml::KeepStateId>,
+                            event::Make<float>>,
+                        state::Dst<void, char>>,
+                    sml::M1>>,
+            Ts>);
 }
 
-TEST(test_combined_state_machine) {
-    struct M1 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple( //
-                state<S>.on(onExit).to(state<S>),
-                state<S>.on(onEnter).to(x)
-            );
-        }
-    };
-
-    struct M2 {
-        using InitialId = S;  // NOLINT
-        auto transitions() {
-            return stdlike::tuple(
-                state<S>.on(onEnter).to(state<S>),
-                state<S>.on(onExit).to(enter<M1>),
-                exit<M1>.on(onEnter).to(state<S>));
-        }
-    };
-
-    using M = impl::traits::CombinedStateMachine<M2>;
+TEST(test_filter_transitions_by_event_id) {
+    using Ts = impl::traits::Transitions<M3>;
+    using Filtered = impl::traits::FilterTransitionsByEventId<int, Ts>;
     using namespace sml::impl;
-
     static_assert(
-        stdlike::same_as<impl::traits::CombinedTransitions<M2>, impl::traits::Transitions<M>>);
+        stdlike::same_as<
+            tl::List<
+                transition::To<
+                    transition::Make<
+                        state::Src<void, int>,
+                        state::Dst<void, KeepStateId>,
+                        event::Make<int>>,
+                    state::Dst<sml::M2, int>>,
+                transition::To<
+                    transition::
+                        Make<state::Src<void, int>, state::Dst<void, KeepStateId>, event::Make<>>,
+                    state::Dst<sml::M1, int>>>,
+            Filtered>);
+}
+
+TEST(test_filter_state_specs_by_tag) {
+    using namespace sml::impl::traits;
+
+    using Specs = tl::List< //
+        StateSpec<void, float>,
+        StateSpec<void, int>,
+        StateSpec<void, char>,
+        StateSpec<char, int>
+    >;
+
+    using Filtered = FilterStateSpecsByTag<int, Specs>;
+    using Expected = tl::List<StateSpec<void, int>, StateSpec<char, int>>;
+
+    static_assert(stdlike::same_as<Expected, Filtered>);
+}
+
+TEST(test_get_state_specs) {
+    using namespace sml::impl::traits;
+
+    using Ts = CombinedTransitions<M3>;
+    using Specs = GetStateSpecs<Ts>;
+    using Expected = tl::List<
+        StateSpec<float, sml::M3>,
+        StateSpec<int, sml::M2>,
+        StateSpec<int, sml::M3>,
+        StateSpec<int, sml::M1>,
+        StateSpec<float, sml::M1>,
+        StateSpec<char, sml::M1>>;
+
+    static_assert(stdlike::same_as<Expected, Specs>);
+}
+
+TEST(test_get_src_specs) {
+    using namespace sml::impl::traits;
+
+    using Ts = CombinedTransitions<M3>;
+    using AllSpecs = GetStateSpecs<Ts>;
+    using Specs = GetSrcSpecs<Ts, AllSpecs>;
+    using Expected = tl::List<
+        StateSpec<float, sml::M3>,
+        StateSpec<int, sml::M3>,
+        StateSpec<int, sml::M2>,
+        StateSpec<float, sml::M1>>;
+
+    static_assert(stdlike::same_as<Expected, Specs>);
+}
+
+TEST(test_get_event_ids) {
+    using namespace sml::impl::traits;
+
+    using Ts = CombinedTransitions<M3>;
+    using Expected = tl::List<int, float>;
+    using Ids = GetEventIds<Ts>;
+
+    static_assert(stdlike::same_as<Expected, Ids>);
 }
 
 }  // namespace sml

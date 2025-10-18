@@ -6,44 +6,10 @@ namespace sml {
 
 struct OnEnterEventId {};
 struct OnExitEventId {};
-
 struct TerminalStateId {};
 struct BypassStateId {};
+struct KeepStateId {};
 
-template <typename... TIds>
-struct AnyId {
-    using Ids = tl::List<TIds...>;
-
-    template <typename Id>
-    static constexpr bool matches() {
-        return tl::Contains<Ids, Id> || tl::Empty<Ids>;
-    }
-};
-
-namespace traits {
-
-template <typename Id>
-struct IsAnyIdI : stdlike::false_type {};
-
-template <typename... Ids>
-struct IsAnyIdI<sml::AnyId<Ids...>> : stdlike::true_type {};
-
-template <typename Id>
-concept IsAnyId = IsAnyIdI<Id>::value;
-
-template <typename Id>
-struct Ids {
-    using type = tl::List<Id>;
-};
-
-template <typename... Is>
-struct Ids<AnyId<Is...>> {
-    using type = tl::List<Is...>;
-};
-
-}  // namespace traits
-
-template <typename Id, typename Ids>
-concept IdMatches = traits::IsAnyId<Ids> && Ids::template matches<Id>();
+using EphemeralStateIds = tl::List<BypassStateId, KeepStateId>;
 
 }  // namespace sml

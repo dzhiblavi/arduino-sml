@@ -1,8 +1,6 @@
 #pragma once
 
-#include "sml/ids.h"
 #include "sml/impl/make.h"
-#include "sml/impl/ref.h"
 
 #include <supp/type_list.h>
 
@@ -14,143 +12,7 @@ using TransitionsTuple = decltype(stdlike::declval<M>().transitions());
 template <StateMachine M>
 using Transitions = tl::ToList<TransitionsTuple<M>>;
 
-// Filters UIds list by state machine
-// UIds is expected to be a list of RefUIds
-template <StateMachine M, tl::IsList UIds>
-struct FilterUIdsByMachineI {
-    struct Pred {
-        template <RefUId UId>
-        static constexpr bool test() {
-            return stdlike::same_as<M, typename UId::M>;
-        }
-    };
-
-    using type = tl::Filter<Pred, UIds>;
-};
-template <StateMachine M, tl::IsList UIds>
-using FilterUIdsByMachine = typename FilterUIdsByMachineI<M, UIds>::type;
-
-// Filters transitions by event Id
-template <typename EId, tl::IsList Transitions>
-struct FilterTransitionsByEventIdI {
-    struct Pred {
-        template <typename T>
-        static constexpr bool test() {
-            return T::Event::Ids::template matches<EId>();
-        }
-    };
-
-    using type = tl::Filter<Pred, Transitions>;
-};
-template <typename EId, tl::IsList Transitions>
-using FilterTransitionsByEventId = typename FilterTransitionsByEventIdI<EId, Transitions>::type;
-
-// Given an UId (of any kind), expands UIds of form RefUId<M, AnyId<...>>
-// So that all AnyIds are expanded into multiple distinct UIds with plain Ids
-template <typename UId, tl::IsList AllUIds>
-struct ExpandAnyIdsInUIdI {
-    using type = tl::List<UId>;
-};
-
-template <StateMachine M, typename... Ids, tl::IsList AllUIds>
-requires(sizeof...(Ids) > 0)
-struct ExpandAnyIdsInUIdI<impl::RefUId<M, AnyId<Ids...>>, AllUIds> {
-    using type = tl::Unique<tl::List<impl::RefUId<M, Ids>...>>;
-};
-
-template <StateMachine M, typename UIds>
-struct ExpandAnyIdsInUIdI<impl::RefUId<M, AnyId<>>, UIds> {
-    template <RefUId UId>
-    struct Map {
-        using Ids = typename sml::traits::Ids<typename UId::Id>::type;
-
-        struct Mapper {
-            template <typename Id>
-            using Map = impl::RefUId<M, Id>;
-        };
-
-        using type = tl::Map<Mapper, Ids>;
-    };
-
-    struct Mapper {
-        template <RefUId UId>
-        using Map = typename Map<UId>::type;
-    };
-
-    using type = tl::Unique<tl::Flatten<tl::Map<Mapper, FilterUIdsByMachine<M, UIds>>>>;
-};
-
-template <typename UId, tl::IsList AllUIds>
-using ExpandAnyIdsInUId = typename ExpandAnyIdsInUIdI<UId, AllUIds>::type;
-
-// Similar to ExpandAnyIdsInUId, but accepts a list of UIds
-// and expands all of them
-template <tl::IsList UIds, tl::IsList AllUIds>
-struct ExpandAnyIdsI {
-    struct Mapper {
-        template <typename UId>
-        using Map = ExpandAnyIdsInUId<UId, AllUIds>;
-    };
-    using type = tl::Unique<tl::Flatten<tl::Map<Mapper, UIds>>>;
-};
-template <tl::IsList UIds, tl::IsList AllUIds = UIds>
-using ExpandAnyIds = typename ExpandAnyIdsI<UIds, AllUIds>::type;
-
-// Retrieves a list of Event Ids from transitions list
-template <tl::IsList Transitions>
-struct EventIdsI {
-    struct Mapper {
-        template <Transition T>
-        using Map = typename T::Event::Ids::Ids; // tl::List<Id>
-    };
-
-    using type = tl::Unique<tl::Flatten<tl::Map<Mapper, Transitions>>>;
-};
-template <tl::IsList Transitions>
-using EventIds = typename EventIdsI<Transitions>::type;
-
-// Retrieves all State UIds from transitions list
-// Both source and destination UIds are included
-// InitUId is included separately for the case when it is not used in
-// any of the transitions
-template <typename InitUId, tl::IsList Transitions>
-struct StateUIdsI {
-    template <Transition T, bool>
-    struct DstUId {
-        using type = tl::List<>;
-    };
-
-    template <Transition T>
-    struct DstUId<T, true> {
-        using type = tl::List<typename T::Dst::UId>;
-    };
-
-    struct Mapper {
-        template <Transition T>
-        using Map = tl::PushFront<
-            typename DstUId<T, !stdlike::same_as<void, typename T::Dst>>::type,
-            typename T::Src::UId>;
-    };
-
-    using type = tl::Unique<tl::PushFront<tl::Flatten<tl::Map<Mapper, Transitions>>, InitUId>>;
-};
-template <typename InitUId, tl::IsList Transitions>
-using StateUIds = typename StateUIdsI<InitUId, Transitions>::type;
-
-// Retrieves all source State UIds from transitions list
-template <tl::IsList Transitions>
-struct SrcUIdsI {
-    struct Mapper {
-        template <Transition T>
-        using Map = typename T::Src::UId;
-    };
-
-    using type = tl::Unique<tl::Map<Mapper, Transitions>>;
-};
-template <tl::IsList Transitions>
-using SrcUIds = typename SrcUIdsI<Transitions>::type;
-
-// Retrieves a list of state machine's submachines.
+// Retrieves a list of state machine's submachines by destionation state Tags.
 // The machine M itself is not included.
 template <StateMachine M, tl::IsList Seen = tl::List<>>
 struct SubmachinesI {
@@ -161,18 +23,17 @@ struct SubmachinesI {
 
     template <Transition T>
     struct MapperI<T, true> {
-        using Submachine = typename T::Dst::UId::M;
+        using Submachine = typename T::Dst::Tag;
         using NewSeen = tl::PushFront<Seen, Submachine>;
         using type = tl::PushBack<typename SubmachinesI<Submachine, NewSeen>::type, Submachine>;
     };
 
     struct Mapper {
         template <Transition T>
-        using Dst = typename T::Dst;
+        using Tag = typename T::Dst::Tag;
 
         template <Transition T>
-        using Map =
-            typename MapperI<T, IsRefState<Dst<T>>::value && !tl::Contains<Seen, Dst<T>>>::type;
+        using Map = typename MapperI<T, StateMachine<Tag<T>> && !tl::Contains<Seen, Tag<T>>>::type;
     };
 
     using type = tl::Unique<tl::Flatten<tl::Map<Mapper, Transitions<M>>>>;
@@ -180,55 +41,31 @@ struct SubmachinesI {
 template <StateMachine M>
 using Submachines = typename SubmachinesI<M>::type;
 
-template <StateMachine M, typename S>
-struct MapState {
-    using Id = typename S::Id;
-    using UId = typename S::UId;
-    using RefUId = impl::RefUId<M, Id>;
-    static constexpr bool is_reference = IsRefUId<UId>::value;
-
-    using type = impl::state::Make<Id, stdlike::conditional_t<is_reference, UId, RefUId>>;
-};
-
-template <StateMachine M>
-struct MapState<M, void> {
-    using type = void;
-};
-
-// Marks all M's transitions' states using RefUId.
-// Does not touch states that are already RefUIds because they can be referencing
-// another submachine (i.e. exit/enter).
-template <StateMachine M>
-struct MarkedTransitionsI {
-    template <Transition T>
-    struct MapTransition {
-        using NewSrc = typename MapState<M, typename T::Src>::type;
-        using NewDst = typename MapState<M, typename T::Dst>::type;
-        using type = impl::transition::Replace<T, NewSrc, NewDst>;
-    };
-
+template <tl::IsList Transitions, typename Tag>
+struct TagTransitionsI {
     struct Mapper {
         template <Transition T>
-        using Map = typename MapTransition<T>::type;
+        using Map = transition::Tagged<T, Tag>;
     };
 
-    using type = tl::Map<Mapper, Transitions<M>>;
+    using type = tl::Map<Mapper, Transitions>;
 };
-template <StateMachine M>
-using MarkedTransitions = typename MarkedTransitionsI<M>::type;
 
-// 1. Finds all M's submachine including itself.
-// 2. Collects transitions of each submachine and marks all states there appropriately.
-// 3. Collects all resulting transitions into a single unique list.
+template <tl::IsList Transitions, typename Tag>
+using TagTransitions = typename TagTransitionsI<Transitions, Tag>::type;
+
 template <StateMachine M>
 struct CombinedTransitionsI {
-    struct SubmMapper {
-        template <StateMachine Subm>
-        using Map = MarkedTransitions<Subm>;
+    using Machines = tl::PushFront<Submachines<M>, M>;
+
+    struct Mapper {
+        template <StateMachine SM>
+        using Map = TagTransitions<Transitions<SM>, SM>;
     };
 
-    using type = tl::Concat<MarkedTransitions<M>, tl::Flatten<tl::Map<SubmMapper, Submachines<M>>>>;
+    using type = tl::Flatten<tl::Map<Mapper, Machines>>;
 };
+
 template <StateMachine M>
 using CombinedTransitions = typename CombinedTransitionsI<M>::type;
 
@@ -246,13 +83,128 @@ class CombinedStateMachine {
     }
 
  private:
-    using Machines = tl::PushFront<Submachines<M>, M>;
     using Transitions = CombinedTransitions<M>;
+    using Machines = tl::PushFront<Submachines<M>, M>;
 
     using MachinesTuple = tl::ApplyToTemplate<Machines, stdlike::tuple>;
     using TransitionsTuple = tl::ApplyToTemplate<Transitions, stdlike::tuple>;
 
     MachinesTuple machines_;
 };
+
+// Filters transitions by event Id
+template <typename Id, tl::IsList Transitions>
+struct FilterTransitionsByEventIdI {
+    struct Pred {
+        template <typename T>
+        static constexpr bool test() {
+            using Ids = typename T::Event::Ids;
+            return tl::Empty<Ids> || tl::Contains<Ids, Id>;
+        }
+    };
+
+    using type = tl::Filter<Pred, Transitions>;
+};
+
+template <typename EId, tl::IsList Transitions>
+using FilterTransitionsByEventId = typename FilterTransitionsByEventIdI<EId, Transitions>::type;
+
+template <typename TId, typename TTag>
+struct StateSpec {
+    using Id = TId;
+    using Tag = TTag;
+};
+
+template <typename Tag, tl::IsList StateSpecs>
+struct FilterStateSpecsByTagI {
+    struct Pred {
+        template <typename S>
+        static constexpr bool test() {
+            return stdlike::same_as<Tag, typename S::Tag>;
+        }
+    };
+
+    using type = tl::Filter<Pred, StateSpecs>;
+};
+
+template <typename Tag, tl::IsList StateSpecs>
+using FilterStateSpecsByTag = typename FilterStateSpecsByTagI<Tag, StateSpecs>::type;
+
+template <tl::IsList Transitions>
+struct GetStateSpecsI {
+    template <Transition T>
+    struct SrcSpecs {
+        struct Mapper {
+            template <typename Id>
+            using Map = StateSpec<Id, typename T::Src::Tag>;
+        };
+        using type = tl::Unique<tl::Map<Mapper, typename T::Src::Ids>>;
+    };
+
+    template <Transition T>
+    struct DstSpecs {
+        using type = tl::List<StateSpec<typename T::Dst::Id, typename T::Dst::Tag>>;
+    };
+
+    struct Mapper {
+        template <Transition T>
+        using Map = tl::Concat<typename SrcSpecs<T>::type, typename DstSpecs<T>::type>;
+    };
+
+    struct Pred {
+        template <typename S>
+        static constexpr bool test() {
+            return !tl::Contains<EphemeralStateIds, typename S::Id>;
+        }
+    };
+
+    using type = tl::Filter<Pred, tl::Unique<tl::Flatten<tl::Map<Mapper, Transitions>>>>;
+};
+
+// Filters ephemeral states
+template <tl::IsList Transitions>
+using GetStateSpecs = typename GetStateSpecsI<Transitions>::type;
+
+template <tl::IsList Transitions, tl::IsList AllStateSpecs>
+struct GetSrcSpecsI {
+    struct Mapper {
+        template <SrcState S>
+        struct Specs {
+            using Ids = typename S::Ids;
+            using Tag = typename S::Tag;
+
+            struct Mapper {
+                template <typename Id>
+                using Map = StateSpec<Id, typename S::Tag>;
+            };
+
+            using type = stdlike::conditional_t< //
+                tl::Empty<Ids>,
+                FilterStateSpecsByTag<Tag, AllStateSpecs>,
+                tl::Map<Mapper, Ids>>;
+        };
+
+        template <Transition T>
+        using Map = typename Specs<typename T::Src>::type;
+    };
+
+    using type = tl::Unique<tl::Flatten<tl::Map<Mapper, Transitions>>>;
+};
+
+template <tl::IsList Transitions, tl::IsList AllStateSpecs>
+using GetSrcSpecs = typename GetSrcSpecsI<Transitions, AllStateSpecs>::type;
+
+template <tl::IsList Transitions>
+struct GetEventIdsI {
+    struct Mapper {
+        template <Transition T>
+        using Map = typename T::Event::Ids;
+    };
+
+    using type = tl::Unique<tl::Flatten<tl::Map<Mapper, Transitions>>>;
+};
+
+template <tl::IsList Transitions>
+using GetEventIds = typename GetEventIdsI<Transitions>::type;
 
 }  // namespace sml::impl::traits

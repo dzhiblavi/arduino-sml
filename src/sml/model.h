@@ -1,108 +1,104 @@
 #pragma once
 
-#include "sml/ids.h"
+#include <supp/type_list.h>
 
 #include <stdlike/tuple.h>
 #include <stdlike/utility.h>
 
 namespace sml {
 
-struct AnyConstRef {
-    template <typename T>
-    operator const T&();
+template <typename A, typename SIds, typename EIds>
+concept Action = tl::CallableN<A, tl::Prod<SIds, EIds>>;
 
-#if defined(SML_ESP8266)
-    template <typename T>
-    operator T();
-#endif
-};
+template <typename C, typename SIds, typename EIds>
+concept Condition = tl::CallableNR<bool, C, tl::Prod<SIds, EIds>>;
 
-template <typename A>
-concept Action = requires(A a, AnyConstRef arg) {
-    { a(arg, arg) } -> stdlike::same_as<void>;
-};
-
-template <typename C, typename... EIds>
-concept Condition = requires(C c, const EIds&... arg, AnyConstRef s) {
-    { (c(s, arg) && ...) } -> stdlike::same_as<bool>;
-};
-
-using ConcreteAction = decltype([](auto, auto) {});
-
-template <typename Id>
-struct ConcreteConditionI {
-    bool operator()(auto, const Id&);
-};
-
-template <traits::IsAnyId Ids>
-struct ConcreteCondition;
-
-template <typename... Ids>
-struct ConcreteCondition<AnyId<Ids...>> : ConcreteConditionI<Ids>... {
-    using ConcreteConditionI<Ids>::operator()...;
-};
-
-// clang-format off
 template <typename E>
-concept Event = requires(E e, AnyConstRef s, ConcreteCondition<typename E::Ids> c) {
-    requires traits::IsAnyId<typename E::Ids>;
-    //{ e.match(s, stdlike::declval<const typename E::Id&>()) } -> stdlike::same_as<bool>;
-    { stdlike::move(e).when(c) }; /*-> Event;*/
-    { stdlike::move(e)[c] }; /*-> Event;*/
-};
-// clang-format on
+concept Event = tl::IsList<typename E::Ids>;
 
-struct ConcreteEvent {
-    using Ids = AnyId<int>;  // Id may hold data that will be passed to actions and conditions
-    bool match(auto, auto&&);
-    ConcreteEvent when(Condition<int> auto);
-    ConcreteEvent operator[](Condition<int> auto);
+namespace conc {
+
+template <typename SId, typename EId>
+struct Condition1 {
+    bool operator()(SId, const EId&);
 };
 
-struct ConcreteTransition;
+template <typename L>
+struct Condition;
 
-struct ConcreteState {
+template <typename... SIds, typename... EIds>
+struct Condition<tl::List<tl::List<SIds, EIds>...>> : Condition1<SIds, EIds>... {
+    using Condition1<SIds, EIds>::operator()...;
+};
+
+template <typename SId, typename EId>
+struct Action1 {
+    void operator()(SId, const EId&);
+};
+
+template <typename L>
+struct Action;
+
+template <typename... SIds, typename... EIds>
+struct Action<tl::List<tl::List<SIds, EIds>...>> : Action1<SIds, EIds>... {
+    using Action1<SIds, EIds>::operator()...;
+};
+
+struct Event {
+    using Ids = tl::List<int, float>;
+};
+
+struct SrcState {
+    using Ids = tl::List<int, float>;
+    using Tag = void;
+};
+
+struct DstState {
     using Id = int;
-    using UId = int;
-    ConcreteTransition on(Event auto);
-    ConcreteTransition operator+(Event auto);
+    using Tag = void;
+};
+
+struct StateMachine {
+    using InitialId = int;
+
+    auto transitions() {
+        return stdlike::tuple{};
+    }
+};
+
+}  // namespace conc
+
+template <typename S>
+concept SrcState = requires(S s, conc::Event event) {
+    requires tl::IsList<typename S::Ids>;
+    typename S::Tag;  // Internal
+    { stdlike::move(s).on(event) };
+    { stdlike::move(s) + event };
 };
 
 template <typename S>
-concept State = requires(S s, ConcreteEvent event) {
-    typename S::Id;   // Simple tag, passed to actions and conditions, not used by sml.
-    typename S::UId;  // Internal identifier
-    { stdlike::move(s).on(event) }; /*-> Transition;*/
-    { stdlike::move(s) + event };   /*-> Transition;*/
-};
-
-struct ConcreteTransition {
-    using Src = ConcreteState;
-    using Dst = void;
-    using Event = ConcreteEvent;
-
-    ConcreteTransition run(Action auto);
-    ConcreteTransition operator|(Action auto);
-    ConcreteTransition to(State auto);
-    ConcreteTransition operator=(State auto);  // NOLINT
-
-    template <typename SId>
-    bool tryExecute(SId, const int&);
+concept DstState = requires(S s) {
+    typename S::Id;
+    typename S::Tag;
 };
 
 template <typename T>
-concept Transition = requires(T t, ConcreteAction a, ConcreteState s) {
-    { State<typename T::Src> };
-    { State<typename T::Dst> || stdlike::same_as<void, typename T::Dst> };
+concept Transition = requires(
+    T t,
+    conc::Action<tl::Prod<typename T::Src::Ids, typename T::Event::Ids>> a,
+    conc::Condition<tl::Prod<typename T::Src::Ids, typename T::Event::Ids>> c,
+    conc::DstState dst) {
+    { SrcState<typename T::Src> };
+    { DstState<typename T::Dst> };
     { Event<typename T::Event> };
 
-    { stdlike::move(t).run(a) }; /*-> Transition;*/
-    { stdlike::move(t) | a };    /*-> Transition;*/
-    { stdlike::move(t).to(s) };  /*-> Transition;*/
-    { stdlike::move(t) = s };    /*-> Transition;*/
-    //{
-        //t.tryExecute(int{}, stdlike::declval<const typename T::Event::Id&>())
-    //} -> stdlike::same_as<bool>;
+    { stdlike::move(t).run(a) };
+    { stdlike::move(t) != a };
+    { stdlike::move(t).to(dst) };
+    { stdlike::move(t) = dst };
+    { stdlike::move(t).when(c) };
+    { stdlike::move(t) == c };
+    { tl::CallableNR<bool, T, tl::Prod<typename T::Src::Ids, typename T::Event::Ids>> };
 };
 
 template <typename T>
@@ -116,14 +112,8 @@ concept TransitionsTuple = IsTransitionsTuple<T>::value;
 
 template <typename T>
 concept StateMachine = requires(T s) {
-    typename T::InitialId;  // S::Id, where S is the initial SM state
+    typename T::InitialId;
     { s.transitions() } -> TransitionsTuple;
 };
-
-static_assert(Action<ConcreteAction>);
-static_assert(Condition<ConcreteCondition<AnyId<int>>, int>);
-static_assert(Event<ConcreteEvent>);
-static_assert(Transition<ConcreteTransition>);
-static_assert(State<ConcreteState>);
 
 }  // namespace sml

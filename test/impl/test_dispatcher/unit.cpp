@@ -4,13 +4,13 @@
 
 #include <utest/utest.h>
 
-namespace sml{
+namespace sml {
 
-Action auto count(int& c) {
+auto count(int& c) {
     return [&](auto, auto) { ++c; };
 }
 
-Condition<int> auto iff(bool& go) {
+auto iff(bool& go) {
     return [&](auto, auto) { return go; };
 }
 
@@ -23,8 +23,7 @@ struct t_dispatcher {
 
 TEST_F(t_dispatcher, test_dispatcher_empty) {
     using Ts = tl::List<>;
-    using Ss = tl::List<>;
-    using Disp = impl::Dispatcher<E, Ts, Ss>;
+    using Disp = impl::Dispatcher<E, Ts>;
 
     auto trs = stdlike::tuple();
     Disp d{trs};
@@ -37,15 +36,14 @@ TEST_F(t_dispatcher, test_dispatcher_runs) {
     struct S {
         using InitialId = S1;
         auto transitions() {
-            return make(sml::state<S1>.on(sml::event<E>).run(count(cnt)));
+            return table(src<S1>.on(ev<E>).run(count(cnt)));
         }
         int& cnt;
     };
 
     using M = impl::traits::CombinedStateMachine<S>;
     using Ts = impl::traits::Transitions<M>;
-    using Ss = impl::traits::StateUIds<impl::RefUId<S, S1>, Ts>;
-    using Disp = impl::Dispatcher<E, Ts, Ss>;
+    using Disp = impl::Dispatcher<E, Ts>;
 
     int cnt = 0;
     M m(S{cnt});
@@ -63,15 +61,14 @@ TEST_F(t_dispatcher, test_dispatcher_destination) {
     struct S {
         using InitialId = S1;
         auto transitions() {
-            return make(state<S1>.on(event<E>).to(state<S2>));
+            return table(src<S1>.on(ev<E>).to(dst<S2>));
         }
         int& cnt;
     };
 
     using M = impl::traits::CombinedStateMachine<S>;
     using Ts = impl::traits::Transitions<M>;
-    using Ss = impl::traits::StateUIds<impl::RefUId<S, S1>, Ts>;
-    using Disp = impl::Dispatcher<E, Ts, Ss>;
+    using Disp = impl::Dispatcher<E, Ts>;
 
     int cnt = 0;
     M m(S{cnt});
@@ -88,15 +85,14 @@ TEST_F(t_dispatcher, test_dispatcher_not_matched) {
     struct S {
         using InitialId = S1;
         auto transitions() {
-            return make(state<S1>.on(event<E>.when(iff(go))));
+            return table(src<S1>.on(ev<E>).when(iff(go)));
         }
         bool& go;
     };
 
     using M = impl::traits::CombinedStateMachine<S>;
     using Ts = impl::traits::Transitions<M>;
-    using Ss = impl::traits::StateUIds<impl::RefUId<S, S1>, Ts>;
-    using Disp = impl::Dispatcher<E, Ts, Ss>;
+    using Disp = impl::Dispatcher<E, Ts>;
 
     bool go = false;
     M m(S{go});
@@ -114,9 +110,9 @@ TEST_F(t_dispatcher, test_dispatcher_multiple) {
     struct S {
         using InitialId = S1;
         auto transitions() {
-            return make(
-                state<S1>.on(event<E>.when(iff(go1))).to(state<S2>).run(count(c1)),
-                state<S1>.on(event<E>.when(iff(go2))).to(state<S3>).run(count(c2)));
+            return table(
+                src<S1>.on(ev<E>).when(iff(go1)).to(dst<S2>).run(count(c1)),
+                src<S1>.on(ev<E>).when(iff(go2)).to(dst<S3>).run(count(c2)));
         }
 
         bool &go1, &go2;
@@ -125,8 +121,7 @@ TEST_F(t_dispatcher, test_dispatcher_multiple) {
 
     using M = impl::traits::CombinedStateMachine<S>;
     using Ts = impl::traits::Transitions<M>;
-    using Ss = impl::traits::StateUIds<impl::RefUId<S, S1>, Ts>;
-    using Disp = impl::Dispatcher<E, Ts, Ss>;
+    using Disp = impl::Dispatcher<E, Ts>;
 
     bool go1 = false, go2 = false;
     int c1 = 0, c2 = 0;
@@ -152,6 +147,62 @@ TEST_F(t_dispatcher, test_dispatcher_multiple) {
     TEST_ASSERT_EQUAL(1, c2);
 }
 
-}  // namespace sml::impl
+TEST_F(t_dispatcher, test_dispatcher_bypass) {
+    struct S {
+        using InitialId = S1;
+        auto transitions() {
+            return table{
+                src<S1>.on(ev<E>).run(count(c1)).to(bypass),
+                src<S1>.on(ev<E>).run(count(c2)),
+            };
+        }
+
+        int &c1, &c2;
+    };
+
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    using Disp = impl::Dispatcher<E, Ts>;
+
+    int c1 = 0, c2 = 0;
+
+    M m(S{c1, c2});
+    auto trs = m.transitions();
+    Disp d{trs};
+
+    TEST_ASSERT_EQUAL(0, d.dispatch(0, E{}));
+    TEST_ASSERT_EQUAL(1, c1);
+    TEST_ASSERT_EQUAL(1, c2);
+}
+
+TEST_F(t_dispatcher, test_dispatcher_keep) {
+    struct S {
+        using InitialId = S1;
+        auto transitions() {
+            return table{
+                src<S1>.on(ev<E>).run(count(c1)),
+                src<S1>.on(ev<E>).run(count(c2)).to(dst<int>),
+            };
+        }
+
+        int &c1, &c2;
+    };
+
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    using Disp = impl::Dispatcher<E, Ts>;
+
+    int c1 = 0, c2 = 0;
+
+    M m(S{c1, c2});
+    auto trs = m.transitions();
+    Disp d{trs};
+
+    TEST_ASSERT_EQUAL(0, d.dispatch(0, E{}));
+    TEST_ASSERT_EQUAL(1, c1);
+    TEST_ASSERT_EQUAL(0, c2);
+}
+
+}  // namespace sml
 
 TESTS_MAIN

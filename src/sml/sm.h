@@ -14,7 +14,7 @@ class SM {
         , dispatchers_{[](auto ts) {
             return tl::apply(
                 [&]<typename... EId>(tl::Type<EId>...) {
-                    return DispatchersTuple{impl::Dispatcher<EId, Trs, UIds>(ts)...};
+                    return DispatchersTuple{impl::Dispatcher<EId, Trs>(ts)...};
                 },
                 EIds{});
         }(machine_.transitions())} {}
@@ -33,23 +33,15 @@ class SM {
     }
 
  private:
-    using InitialUId = impl::RefUId<TM, typename TM::InitialId>;
+    using InitialSpec = impl::traits::StateSpec<typename TM::InitialId, TM>;
     using M = impl::traits::CombinedStateMachine<TM>;
     using Trs = impl::traits::Transitions<M>;
-    using EIds = impl::traits::EventIds<Trs>;
-    using UIds = impl::traits::ExpandAnyIds<impl::traits::StateUIds<InitialUId, Trs>>;
-
-    struct AnyIdUIdPred {
-        template <typename UId>
-        static constexpr bool test() {
-            return traits::IsAnyId<typename UId::Id>;
-        }
-    };
-    static_assert(tl::empty(tl::filter<AnyIdUIdPred>(UIds{})), "implementation error");
+    using EIds = impl::traits::GetEventIds<Trs>;
+    using StateSpecs = impl::traits::GetStateSpecs<Trs>;
 
     struct DispatcherMapper {
         template <typename EId>
-        using Map = impl::Dispatcher<EId, Trs, UIds>;
+        using Map = impl::Dispatcher<EId, Trs>;
     };
     using Dispatchers = tl::Map<DispatcherMapper, EIds>;
     using DispatchersTuple = tl::ApplyToTemplate<Dispatchers, stdlike::tuple>;
@@ -59,7 +51,7 @@ class SM {
 
     template <typename RawEvent>
     bool feedImpl(RawEvent event) {
-        using Dispatcher = impl::Dispatcher<RawEvent, Trs, UIds>;
+        using Dispatcher = impl::Dispatcher<RawEvent, Trs>;
         auto&& dispatcher = stdlike::get<Dispatcher>(dispatchers_);
 
         int dst_state = dispatcher.dispatch(state_idx_, event);
@@ -78,7 +70,7 @@ class SM {
 
     M machine_;
     DispatchersTuple dispatchers_;
-    int state_idx_ = static_cast<int>(tl::Find<InitialUId, UIds>);
+    int state_idx_ = static_cast<int>(tl::Find<InitialSpec, StateSpecs>);
 };
 
 }  // namespace sml

@@ -1,4 +1,5 @@
 #include <sml/make.h>
+#include <sml/overloads.h>
 #include <sml/sm.h>
 #include <sml/syntax.h>
 
@@ -12,258 +13,144 @@ struct t_sm {
     struct S2 {};
     struct S3 {};
 
-    Action auto count(int& c) {
+    auto count(int& c) {
         return [&](auto, auto) { ++c; };
     }
 
-    Condition<int> auto iff(bool& go) {
+    auto iff(bool& go) {
         return [&](auto, auto) { return go; };
     }
 };
 
-TEST_F(t_sm, test_sm_begin_empty) {
+TEST_F(t_sm, test_sm_bypass_before) {
     struct M {
         using InitialId = S1;  // NOLINT
 
         auto transitions() {
-            return make();
-        }
-    };
-
-    SM<M> sm;
-    sm.begin();
-}
-
-TEST_F(t_sm, test_sm_begin_calls_onenter) {
-    struct M {
-        using InitialId = S1;  // NOLINT
-
-        auto transitions() {
-            return make(
-                state<S1>.on(onEnter).run([&](auto, auto) { c1 = true; }),
-                state<S2>.on(onEnter).run([&](auto, auto) { c2 = true; }));
-        }
-
-        bool& c1;
-        bool& c2;
-    };
-
-    bool c1 = false, c2 = false;
-    SM<M> sm{M{c1, c2}};
-
-    TEST_ASSERT_FALSE(c1 || c2);
-    sm.begin();
-    TEST_ASSERT_TRUE(c1 && !c2);
-}
-
-TEST_F(t_sm, test_sm_no_transition) {
-    struct M {
-        using InitialId = S1;  // NOLINT
-
-        auto transitions() {
-            return make(
-                state<S1>.on(event<int>).run([&](auto, auto) { c1 = true; }),
-                state<S2>.on(event<float>).run([&](auto, auto) { c2 = true; }));
-        }
-
-        bool& c1;
-        bool& c2;
-    };
-
-    bool c1 = false, c2 = false;
-    SM<M> sm{M{c1, c2}};
-
-    TEST_ASSERT_FALSE(c1 || c2);
-    sm.begin();
-    TEST_ASSERT_FALSE(c1 || c2);
-
-    TEST_ASSERT_FALSE(sm.feed(1.0));
-    TEST_ASSERT_FALSE(c1 || c2);
-}
-
-TEST_F(t_sm, test_sm_transition) {
-    struct M {
-        using InitialId = S1;  // NOLINT
-
-        auto transitions() {
-            return make(
-                state<S1>.on(event<int>).run([&](auto, auto) { ++c1; }).to(state<S2>),
-                state<S2>.on(event<float>).run([&](auto, auto) { ++c2; }).to(state<S1>));
+            return table(
+                src<> + ev<int> != [&](auto, auto) { ++c1; } = bypass,
+                src<S1> + ev<int> != [&](auto, auto) { ++c2; });
         }
 
         int& c1;
         int& c2;
     };
 
-    int c1 = 0, c2 = 0;
+    int c1{}, c2{};
     SM<M> sm{M{c1, c2}};
 
-    // sm.begin();
-
-    // none
-    TEST_ASSERT_FALSE(sm.feed(1.0));
-    TEST_ASSERT_FALSE(c1 || c2);
-
-    // S1 -> S2
     TEST_ASSERT_TRUE(sm.feed(10));
     TEST_ASSERT_EQUAL(1, c1);
-    TEST_ASSERT_EQUAL(0, c2);
-
-    // S2 -> S1
-    TEST_ASSERT_TRUE(sm.feed(1.0f));
-    TEST_ASSERT_EQUAL(1, c1);
-    TEST_ASSERT_EQUAL(1, c2);
-
-    // S1 -> S2
-    TEST_ASSERT_TRUE(sm.feed(20));
-    TEST_ASSERT_EQUAL(2, c1);
     TEST_ASSERT_EQUAL(1, c2);
 }
 
-TEST_F(t_sm, test_sm_transitions_order_matters) {
+TEST_F(t_sm, test_sm_bypass_after) {
     struct M {
         using InitialId = S1;  // NOLINT
 
         auto transitions() {
-            return make(
-                state<S1>.on(event<int>).run([&](auto, auto) { ++c1; }).to(state<S2>),
-                state<S1>.on(event<int>).run([&](auto, auto) { ++c2; }).to(state<S2>));
+            return table(
+                src<S1> + ev<int> != [&](auto, auto) { ++c2; },
+                src<> + ev<int> != [&](auto, auto) { ++c1; } = bypass);
         }
 
         int& c1;
         int& c2;
     };
 
-    int c1 = 0, c2 = 0;
+    int c1{}, c2{};
     SM<M> sm{M{c1, c2}};
 
     TEST_ASSERT_TRUE(sm.feed(10));
-    TEST_ASSERT_EQUAL(1, c1);
-    TEST_ASSERT_EQUAL(0, c2);
+    TEST_ASSERT_EQUAL(0, c1);
+    TEST_ASSERT_EQUAL(1, c2);
 }
 
-TEST_F(t_sm, test_sm_submachine) {
+TEST_F(t_sm, test_sm_example_with_syntax) {
     struct S {
         using InitialId = S2;  // NOLINT
 
         auto transitions() {
-            return make(state<S2>.on(event<float>).run([&](auto, auto) { ++c1; }).to(x));
-        }
+            auto inc = [](int& x) { return [&x](auto, auto) { ++x; }; };
+            auto cond = [](auto, char c) { return c == 'x'; };
+            auto log = [](auto, int x) { LINFO("S transition event=%d", x); };
 
-        int& c1;
-    };
-
-    struct M {
-        using InitialId = S1;  // NOLINT
-
-        auto transitions() {
-            return make(
-                state<S1>.on(event<int>).run([&](auto, auto) { ++c1; }).to(enter<S>),
-                exit<S>.on(event<char>).run([&](auto, auto) { ++c2; }).to(state<S1>));
-        }
-
-        int& c1;
-        int& c2;
-    };
-
-    int m1{}, m2{}, s1{};
-    SM<M> sm{M{m1, m2}, S{s1}};
-
-    // M: none
-    TEST_ASSERT_FALSE(sm.feed(1.0));
-    TEST_ASSERT_FALSE(sm.feed('a'));
-
-    // M: S1 -> S (S2)
-    TEST_ASSERT_TRUE(sm.feed(10));
-    TEST_ASSERT_EQUAL(1, m1);
-    TEST_ASSERT_EQUAL(0, m2);
-    TEST_ASSERT_EQUAL(0, s1);
-
-    // S: none
-    TEST_ASSERT_FALSE(sm.feed(10));
-
-    // S: S2 -> exit<S>
-    TEST_ASSERT_TRUE(sm.feed(1.f));
-    TEST_ASSERT_EQUAL(1, m1);
-    TEST_ASSERT_EQUAL(0, m2);
-    TEST_ASSERT_EQUAL(1, s1);
-
-    // M: none
-    TEST_ASSERT_FALSE(sm.feed(10));
-
-    // M: exit<S> -> S1
-    TEST_ASSERT_TRUE(sm.feed('a'));
-    TEST_ASSERT_EQUAL(1, m1);
-    TEST_ASSERT_EQUAL(1, m2);
-    TEST_ASSERT_EQUAL(1, s1);
-}
-
-TEST_F(t_sm, test_sm_more_transitions) {
-    struct S {
-        using InitialId = S2;  // NOLINT
-
-        auto transitions() {
-            return make(
-                state<S1>.on(event<int>).run([&](auto, auto) { ++c1; }).to(x),
-                state<S2>.on(event<float>).run([&](auto, auto) { ++c2; }).to(state<S1>));
-        }
-
-        int& c1;
-        int& c2;
-    };
-
-    struct M {
-        using InitialId = S1;  // NOLINT
-
-        auto transitions() {
-            return make(
-                state<S1>.on(event<int>).run([&](auto, auto) { ++c1; }).to(state<S2>),
-                state<S2>.on(event<float>).run([&](auto, auto) { ++c2; }).to(enter<S>),
-                exit<S>.on(event<char>).run([&](auto, auto) { ++c3; }).to(state<S1>));
+            return table(
+                src<> + ev<int> != log = bypass,  // logging bypass transition
+                src<S1> + ev<int> != inc(c1) = x,
+                src<S2> + ev<float> != inc(c2) = dst<S1>,
+                src<S1, S2> + ev<char> == cond != inc(c3) = dst<S2>,
+                src<S2> + ev<char> != inc(c4) = dst<S1>);
         }
 
         int& c1;
         int& c2;
         int& c3;
+        int& c4;
     };
 
-    int m1{}, m2{}, m3{}, s1{}, s2{};
-    SM<M> sm{M{m1, m2, m3}, S{s1, s2}};
+    struct M {
+        using InitialId = S1;  // NOLINT
 
-    TEST_ASSERT_TRUE(sm.feed(10));
-    TEST_ASSERT_EQUAL(1, m1);
-    TEST_ASSERT_EQUAL(0, m2);
-    TEST_ASSERT_EQUAL(0, m3);
-    TEST_ASSERT_EQUAL(0, s1);
-    TEST_ASSERT_EQUAL(0, s2);
+        auto transitions() {
+            auto inc = [](int& x) { return [&x](auto, auto) { ++x; }; };
+            auto cond = [](auto, char c) { return c == 'y'; };
+            auto log = overloads{
+                [](auto, int x) { LINFO("M transition event int=%d", x); },
+                [](auto, float x) { LINFO("M transition event float=%f", x); },
+                [](auto, char x) { LINFO("M transition event char=%d", (int)x); },
+                [](auto, auto) { LINFO("M anon transition"); },
+                [](auto, OnEnterEventId) { LINFO("M onEnter transition"); },
+                [](auto, OnExitEventId) { LINFO("M onExit transition"); },
+            };
 
-    TEST_ASSERT_TRUE(sm.feed(1.f));
+            return table(
+                src<> + ev<> != log = bypass,  // logging bypass transition
+                src<S1> + ev<int> != inc(c1) = dst<S2>,
+                src<S2> + ev<float> != inc(c2) = enter<S>,
+                exit<S> + onEnter != inc(c3) = dst<S1>,
+                src<> + ev<char> == cond != inc(c4) = dst<S1>);
+        }
+
+        int& c1;
+        int& c2;
+        int& c3;
+        int& c4;
+    };
+
+    int s1{}, s2{}, s3{}, s4{};
+    int m1{}, m2{}, m3{}, m4{};
+    SM<M> sm{M{m1, m2, m3, m4}, S{s1, s2, s3, s4}};
+
+    // M: S1
+    TEST_ASSERT_FALSE(sm.feed('z'));
+    TEST_ASSERT_TRUE(sm.feed('y'));  // S1 -> S1, c4
+    TEST_ASSERT_EQUAL(1, m4);
+    TEST_ASSERT_TRUE(sm.feed(10));  // S1 -> S2, c1
     TEST_ASSERT_EQUAL(1, m1);
+    TEST_ASSERT_FALSE(sm.feed('z'));
+    TEST_ASSERT_TRUE(sm.feed('y'));  // S2 -> S1, c4
+    TEST_ASSERT_EQUAL(2, m4);
+    TEST_ASSERT_TRUE(sm.feed(20));  // S1 -> S2, c1
+    TEST_ASSERT_EQUAL(2, m1);
+    TEST_ASSERT_TRUE(sm.feed(1.f));  // S2 -> enter<S>, c2
     TEST_ASSERT_EQUAL(1, m2);
-    TEST_ASSERT_EQUAL(0, m3);
-    TEST_ASSERT_EQUAL(0, s1);
-    TEST_ASSERT_EQUAL(0, s2);
 
-    TEST_ASSERT_TRUE(sm.feed(1.f));
-    TEST_ASSERT_EQUAL(1, m1);
-    TEST_ASSERT_EQUAL(1, m2);
-    TEST_ASSERT_EQUAL(0, m3);
-    TEST_ASSERT_EQUAL(0, s1);
+    // S: S2
+    TEST_ASSERT_TRUE(sm.feed(1.f));  // S2 -> S1, c2
     TEST_ASSERT_EQUAL(1, s2);
-
-    TEST_ASSERT_TRUE(sm.feed(10));
-    TEST_ASSERT_EQUAL(1, m1);
-    TEST_ASSERT_EQUAL(1, m2);
-    TEST_ASSERT_EQUAL(0, m3);
+    TEST_ASSERT_FALSE(sm.feed('z'));
+    TEST_ASSERT_TRUE(sm.feed('x'));  // S1 -> S2, c3
+    TEST_ASSERT_EQUAL(1, s3);
+    TEST_ASSERT_TRUE(sm.feed('z'));  // S2 -> S1, c4
+    TEST_ASSERT_EQUAL(1, s4);
+    TEST_ASSERT_TRUE(sm.feed(30));  // S1 -> x, c1
     TEST_ASSERT_EQUAL(1, s1);
-    TEST_ASSERT_EQUAL(1, s2);
 
-    TEST_ASSERT_TRUE(sm.feed('a'));
-    TEST_ASSERT_EQUAL(1, m1);
-    TEST_ASSERT_EQUAL(1, m2);
+    // M: exit<S> -> S1, c3
     TEST_ASSERT_EQUAL(1, m3);
-    TEST_ASSERT_EQUAL(1, s1);
-    TEST_ASSERT_EQUAL(1, s2);
+    TEST_ASSERT_TRUE(sm.feed('y'));  // S1 -> S1, c4
+    TEST_ASSERT_EQUAL(3, m4);
 }
 
 }  // namespace sml
