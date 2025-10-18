@@ -2,12 +2,13 @@
 
 #include "sml/impl/make.h"
 
+#include <supp/tuple.h>
 #include <supp/type_list.h>
 
 namespace sml::impl::traits {
 
 template <StateMachine M>
-using TransitionsTuple = decltype(stdlike::declval<M>().transitions());
+using TransitionsTuple = decltype(std::declval<M>().transitions());
 
 template <StateMachine M>
 using Transitions = tl::ToList<TransitionsTuple<M>>;
@@ -75,19 +76,19 @@ class CombinedStateMachine {
     using InitialId = typename M::InitialId;
 
     template <StateMachine... Machines>
-    explicit CombinedStateMachine(Machines... machines) : machines_{stdlike::move(machines)...} {}
+    explicit CombinedStateMachine(Machines... machines) : machines_{std::move(machines)...} {}
 
     sml::TransitionsTuple auto transitions() {
-        return stdlike::tuple_convert<TransitionsTuple>(stdlike::apply(
-            [](auto&... m) { return stdlike::tuple_cat(m.transitions()...); }, machines_));
+        return supp::tuple_convert<TransitionsTuple>(
+            std::apply([](auto&... m) { return std::tuple_cat(m.transitions()...); }, machines_));
     }
 
  private:
     using Transitions = CombinedTransitions<M>;
     using Machines = tl::PushFront<Submachines<M>, M>;
 
-    using MachinesTuple = tl::ApplyToTemplate<Machines, stdlike::tuple>;
-    using TransitionsTuple = tl::ApplyToTemplate<Transitions, stdlike::tuple>;
+    using MachinesTuple = tl::ApplyToTemplate<Machines, std::tuple>;
+    using TransitionsTuple = tl::ApplyToTemplate<Transitions, std::tuple>;
 
     MachinesTuple machines_;
 };
@@ -120,7 +121,7 @@ struct FilterStateSpecsByTagI {
     struct Pred {
         template <typename S>
         static constexpr bool test() {
-            return stdlike::same_as<Tag, typename S::Tag>;
+            return std::same_as<Tag, typename S::Tag>;
         }
     };
 
@@ -178,7 +179,7 @@ struct GetSrcSpecsI {
                 using Map = StateSpec<Id, typename S::Tag>;
             };
 
-            using type = stdlike::conditional_t< //
+            using type = std::conditional_t< //
                 tl::Empty<Ids>,
                 FilterStateSpecsByTag<Tag, AllStateSpecs>,
                 tl::Map<Mapper, Ids>>;

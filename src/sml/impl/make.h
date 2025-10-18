@@ -22,37 +22,37 @@ template <typename Self>
 struct Mixin {
     template <DstState S>
     auto operator=(S dst) && {  // NOLINT
-        return stdlike::move(*static_cast<Self*>(this)).to(stdlike::move(dst));
+        return std::move(*static_cast<Self*>(this)).to(std::move(dst));
     }
 
     template <typename A>
     auto operator!=(A action) && {
-        return stdlike::move(*static_cast<Self*>(this)).run(stdlike::move(action));
+        return std::move(*static_cast<Self*>(this)).run(std::move(action));
     }
 
     template <typename A>
     auto operator==(A action) && {
-        return stdlike::move(*static_cast<Self*>(this)).when(stdlike::move(action));
+        return std::move(*static_cast<Self*>(this)).when(std::move(action));
     }
 
     template <DstState Dst>
     auto to(Dst) && {
-        return To<Self, Dst>{stdlike::move(*static_cast<Self*>(this))};
+        return To<Self, Dst>{std::move(*static_cast<Self*>(this))};
     }
 
     template <typename Action>
     auto run(Action a) && {
         return Run<Self, Action>{
-            stdlike::move(*static_cast<Self*>(this)),
-            stdlike::move(a),
+            std::move(*static_cast<Self*>(this)),
+            std::move(a),
         };
     }
 
     template <typename Condition>
     auto when(Condition c) && {
         return When<Self, Condition>{
-            stdlike::move(*static_cast<Self*>(this)),
-            stdlike::move(c),
+            std::move(*static_cast<Self*>(this)),
+            std::move(c),
         };
     }
 };
@@ -71,11 +71,11 @@ struct To : Mixin<To<T, D>> {
     using Event = typename T::Event;
     using Mixin<To<T, D>>::operator=;
 
-    explicit To(T parent) : parent_{stdlike::move(parent)} {}
+    explicit To(T parent) : parent_{std::move(parent)} {}
 
     template <DstState Dest>
     auto to(Dest) && {
-        return To<T, Dest>{stdlike::move(parent_)};
+        return To<T, Dest>{std::move(parent_)};
     }
 
     template <typename SId, typename EId>
@@ -94,7 +94,7 @@ struct Run : Mixin<Run<T, A>> {
     using Event = typename T::Event;
     using Mixin<Run<T, A>>::operator=;
 
-    Run(T parent, A action) : parent_{stdlike::move(parent)}, action_{stdlike::move(action)} {}
+    Run(T parent, A action) : parent_{std::move(parent)}, action_{std::move(action)} {}
 
     template <typename SId, typename EId>
     bool operator()(SId sid, const EId& eid) {
@@ -119,8 +119,8 @@ struct When : Mixin<When<T, C>> {
     using Mixin<When<T, C>>::operator=;
 
     When(T parent, C condition)
-        : parent_{stdlike::move(parent)}
-        , condition_{stdlike::move(condition)} {}
+        : parent_{std::move(parent)}
+        , condition_{std::move(condition)} {}
 
     template <typename SId, typename EId>
     bool operator()(SId sid, const EId& eid) {
@@ -155,7 +155,7 @@ struct Dst {
     using Tag = TTag;
 
     template <typename NewTag>
-    using Tagged = stdlike::conditional_t<stdlike::same_as<void, Tag>, Dst<NewTag, Id>, Dst>;
+    using Tagged = std::conditional_t<std::same_as<void, Tag>, Dst<NewTag, Id>, Dst>;
 };
 
 template <typename TTag, typename... TIds>
@@ -170,11 +170,11 @@ struct Src {
 
     template <Event E>
     auto operator+(E event) const {
-        return on(stdlike::move(event));
+        return on(std::move(event));
     }
 
     template <typename NewTag>
-    using Tagged = stdlike::conditional_t<stdlike::same_as<void, Tag>, Src<NewTag, TIds...>, Src>;
+    using Tagged = std::conditional_t<std::same_as<void, Tag>, Src<NewTag, TIds...>, Src>;
 };
 
 }  // namespace state

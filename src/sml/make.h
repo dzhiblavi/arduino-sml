@@ -27,6 +27,8 @@ inline constexpr Event auto onEnter = ev<OnEnterEventId>;
 inline constexpr Event auto onExit = ev<OnExitEventId>;
 
 template <Transition... Ts>
-using table = stdlike::tuple<Ts...>;
+TransitionsTuple auto table(Ts... ts) {
+    return std::tuple<Ts...>(std::move(ts)...);
+}
 
 }  // namespace sml

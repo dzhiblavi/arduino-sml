@@ -19,13 +19,13 @@ concept RefUId = requires() {
 };
 
 template <typename UId>
-struct IsRefUId : stdlike::false_type {};
+struct IsRefUId : std::false_type {};
 
 template <StateMachine M, typename Id>
-struct IsRefUId<impl::RefUId<M, Id>> : stdlike::true_type {};
+struct IsRefUId<impl::RefUId<M, Id>> : std::true_type {};
 
 template <typename S>
-struct IsRefState : stdlike::false_type {};
+struct IsRefState : std::false_type {};
 
 template <State S>
 struct IsRefState<S> : IsRefUId<typename S::UId> {};

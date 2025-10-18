@@ -9,9 +9,7 @@ struct M1 {
     using InitialId = int;
 
     auto transitions() {
-        return table{
-            src<float> + ev<float> = dst<char>,
-        };
+        return table(src<float> + ev<float> = dst<char>);
     }
 };
 
@@ -19,9 +17,7 @@ struct M2 {
     using InitialId = int;
 
     auto transitions() {
-        return table{
-            src<> + ev<> = enter<M1>,
-        };
+        return table(src<> + ev<> = enter<M1>);
     }
 };
 
@@ -29,11 +25,10 @@ struct M3 {
     using InitialId = int;
 
     auto transitions() {
-        return table{
+        return table(
             src<float> + ev<float> = bypass,
             src<int> + ev<int> = enter<M2>,
-            src<int> + ev<> = enter<M1>,
-        };
+            src<int> + ev<> = enter<M1>);
     }
 };
 
@@ -43,7 +38,7 @@ static_assert(StateMachine<M3>);
 
 TEST(test_submachines) {
     using SMs = impl::traits::Submachines<M3>;
-    static_assert(stdlike::same_as<tl::List<M2, M1>, SMs>);
+    static_assert(std::same_as<tl::List<M2, M1>, SMs>);
 }
 
 TEST(test_tag_transitions) {
@@ -54,20 +49,20 @@ TEST(test_tag_transitions) {
     using T1 = tl::At<1, Tagged>;
     using T2 = tl::At<2, Tagged>;
 
-    static_assert(stdlike::same_as<float, typename T0::Src::Tag>);
-    static_assert(stdlike::same_as<float, typename T1::Src::Tag>);
-    static_assert(stdlike::same_as<float, typename T2::Src::Tag>);
+    static_assert(std::same_as<float, typename T0::Src::Tag>);
+    static_assert(std::same_as<float, typename T1::Src::Tag>);
+    static_assert(std::same_as<float, typename T2::Src::Tag>);
 
-    static_assert(stdlike::same_as<float, typename T0::Dst::Tag>);
-    static_assert(stdlike::same_as<M2, typename T1::Dst::Tag>);
-    static_assert(stdlike::same_as<M1, typename T2::Dst::Tag>);
+    static_assert(std::same_as<float, typename T0::Dst::Tag>);
+    static_assert(std::same_as<M2, typename T1::Dst::Tag>);
+    static_assert(std::same_as<M1, typename T2::Dst::Tag>);
 }
 
 TEST(test_combined_transitions) {
     using Ts = impl::traits::CombinedTransitions<M3>;
     using namespace sml::impl;
     static_assert(
-        stdlike::same_as<
+        std::same_as<
             tl::List<
                 transition::Tagged<
                     transition::To<
@@ -117,7 +112,7 @@ TEST(test_filter_transitions_by_event_id) {
     using Filtered = impl::traits::FilterTransitionsByEventId<int, Ts>;
     using namespace sml::impl;
     static_assert(
-        stdlike::same_as<
+        std::same_as<
             tl::List<
                 transition::To<
                     transition::Make<
@@ -145,7 +140,7 @@ TEST(test_filter_state_specs_by_tag) {
     using Filtered = FilterStateSpecsByTag<int, Specs>;
     using Expected = tl::List<StateSpec<void, int>, StateSpec<char, int>>;
 
-    static_assert(stdlike::same_as<Expected, Filtered>);
+    static_assert(std::same_as<Expected, Filtered>);
 }
 
 TEST(test_get_state_specs) {
@@ -161,7 +156,7 @@ TEST(test_get_state_specs) {
         StateSpec<float, sml::M1>,
         StateSpec<char, sml::M1>>;
 
-    static_assert(stdlike::same_as<Expected, Specs>);
+    static_assert(std::same_as<Expected, Specs>);
 }
 
 TEST(test_get_src_specs) {
@@ -176,7 +171,7 @@ TEST(test_get_src_specs) {
         StateSpec<int, sml::M2>,
         StateSpec<float, sml::M1>>;
 
-    static_assert(stdlike::same_as<Expected, Specs>);
+    static_assert(std::same_as<Expected, Specs>);
 }
 
 TEST(test_get_event_ids) {
@@ -186,7 +181,7 @@ TEST(test_get_event_ids) {
     using Expected = tl::List<int, float>;
     using Ids = GetEventIds<Ts>;
 
-    static_assert(stdlike::same_as<Expected, Ids>);
+    static_assert(std::same_as<Expected, Ids>);
 }
 
 }  // namespace sml

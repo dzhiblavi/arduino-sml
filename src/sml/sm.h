@@ -10,7 +10,7 @@ class SM {
  public:
     template <StateMachine... Machines>
     explicit SM(Machines&&... machines)
-        : machine_{stdlike::move(machines)...}
+        : machine_{std::move(machines)...}
         , transitions_{machine_.transitions()}
         , dispatchers_{[this] {
             return tl::apply(
@@ -46,7 +46,7 @@ class SM {
         using Map = impl::Dispatcher<EId, Trs>;
     };
     using Dispatchers = tl::Map<DispatcherMapper, EIds>;
-    using DispatchersTuple = tl::ApplyToTemplate<Dispatchers, stdlike::tuple>;
+    using DispatchersTuple = tl::ApplyToTemplate<Dispatchers, std::tuple>;
 
     template <typename EId>
     static constexpr bool SupportsEvent = tl::Contains<EIds, EId>;
@@ -54,7 +54,7 @@ class SM {
     template <typename RawEvent>
     bool feedImpl(RawEvent event) {
         using Dispatcher = impl::Dispatcher<RawEvent, Trs>;
-        auto&& dispatcher = stdlike::get<Dispatcher>(dispatchers_);
+        auto&& dispatcher = std::get<Dispatcher>(dispatchers_);
 
         int dst_state = dispatcher.dispatch(state_idx_, event);
         if (dst_state == -1) {

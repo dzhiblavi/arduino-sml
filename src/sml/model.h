@@ -2,8 +2,8 @@
 
 #include <supp/type_list.h>
 
-#include <stdlike/tuple.h>
-#include <stdlike/utility.h>
+#include <tuple>
+#include <utility>
 
 namespace sml {
 
@@ -62,7 +62,7 @@ struct StateMachine {
     using InitialId = int;
 
     auto transitions() {
-        return stdlike::tuple{};
+        return std::tuple{};
     }
 };
 
@@ -72,8 +72,8 @@ template <typename S>
 concept SrcState = requires(S s, conc::Event event) {
     requires tl::IsList<typename S::Ids>;
     typename S::Tag;  // Internal
-    { stdlike::move(s).on(event) };
-    { stdlike::move(s) + event };
+    { std::move(s).on(event) };
+    { std::move(s) + event };
 };
 
 template <typename S>
@@ -92,20 +92,20 @@ concept Transition = requires(
     { DstState<typename T::Dst> };
     { Event<typename T::Event> };
 
-    { stdlike::move(t).run(a) };
-    { stdlike::move(t) != a };
-    { stdlike::move(t).to(dst) };
-    { stdlike::move(t) = dst };
-    { stdlike::move(t).when(c) };
-    { stdlike::move(t) == c };
+    { std::move(t).run(a) };
+    { std::move(t) != a };
+    { std::move(t).to(dst) };
+    { std::move(t) = dst };
+    { std::move(t).when(c) };
+    { std::move(t) == c };
     { tl::CallableNR<bool, T, tl::Prod<typename T::Src::Ids, typename T::Event::Ids>> };
 };
 
 template <typename T>
-struct IsTransitionsTuple : stdlike::false_type {};
+struct IsTransitionsTuple : std::false_type {};
 
 template <Transition... Ts>
-struct IsTransitionsTuple<stdlike::tuple<Ts...>> : stdlike::true_type {};
+struct IsTransitionsTuple<std::tuple<Ts...>> : std::true_type {};
 
 template <typename T>
 concept TransitionsTuple = IsTransitionsTuple<T>::value;

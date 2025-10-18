@@ -25,8 +25,8 @@ TEST_F(t_dispatcher, test_dispatcher_empty) {
     using Ts = tl::List<>;
     using Disp = impl::Dispatcher<E, Ts>;
 
-    auto trs = stdlike::tuple();
-    Disp d{trs};
+    auto trs = std::tuple();
+    Disp d{&trs};
 
     // Undefined:
     // TEST_ASSERT_EQUAL(-1, d.dispatch(0, E{}));
@@ -48,7 +48,7 @@ TEST_F(t_dispatcher, test_dispatcher_runs) {
     int cnt = 0;
     M m(S{cnt});
     auto trs = m.transitions();
-    Disp d{trs};
+    Disp d{&trs};
 
     TEST_ASSERT_EQUAL(0, d.dispatch(0, E{}));
     TEST_ASSERT_EQUAL(1, cnt);
@@ -73,7 +73,7 @@ TEST_F(t_dispatcher, test_dispatcher_destination) {
     int cnt = 0;
     M m(S{cnt});
     auto trs = m.transitions();
-    Disp d{trs};
+    Disp d{&trs};
 
     // S1, S2
     TEST_ASSERT_EQUAL(-1, d.dispatch(1, E{}));
@@ -97,7 +97,7 @@ TEST_F(t_dispatcher, test_dispatcher_not_matched) {
     bool go = false;
     M m(S{go});
     auto trs = m.transitions();
-    Disp d{trs};
+    Disp d{&trs};
 
     go = false;
     TEST_ASSERT_EQUAL(-1, d.dispatch(0, E{}));
@@ -128,7 +128,7 @@ TEST_F(t_dispatcher, test_dispatcher_multiple) {
 
     M m(S{go1, go2, c1, c2});
     auto trs = m.transitions();
-    Disp d{trs};
+    Disp d{&trs};
 
     // S2, S1, S3
     go1 = go2 = true;
@@ -151,10 +151,8 @@ TEST_F(t_dispatcher, test_dispatcher_bypass) {
     struct S {
         using InitialId = S1;
         auto transitions() {
-            return table{
-                src<S1>.on(ev<E>).run(count(c1)).to(bypass),
-                src<S1>.on(ev<E>).run(count(c2)),
-            };
+            return table(
+                src<S1>.on(ev<E>).run(count(c1)).to(bypass), src<S1>.on(ev<E>).run(count(c2)));
         }
 
         int &c1, &c2;
@@ -168,7 +166,7 @@ TEST_F(t_dispatcher, test_dispatcher_bypass) {
 
     M m(S{c1, c2});
     auto trs = m.transitions();
-    Disp d{trs};
+    Disp d{&trs};
 
     TEST_ASSERT_EQUAL(0, d.dispatch(0, E{}));
     TEST_ASSERT_EQUAL(1, c1);
@@ -179,10 +177,8 @@ TEST_F(t_dispatcher, test_dispatcher_keep) {
     struct S {
         using InitialId = S1;
         auto transitions() {
-            return table{
-                src<S1>.on(ev<E>).run(count(c1)),
-                src<S1>.on(ev<E>).run(count(c2)).to(dst<int>),
-            };
+            return table(
+                src<S1>.on(ev<E>).run(count(c1)), src<S1>.on(ev<E>).run(count(c2)).to(dst<int>));
         }
 
         int &c1, &c2;
@@ -196,7 +192,7 @@ TEST_F(t_dispatcher, test_dispatcher_keep) {
 
     M m(S{c1, c2});
     auto trs = m.transitions();
-    Disp d{trs};
+    Disp d{&trs};
 
     TEST_ASSERT_EQUAL(0, d.dispatch(0, E{}));
     TEST_ASSERT_EQUAL(1, c1);
