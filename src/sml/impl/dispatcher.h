@@ -37,19 +37,6 @@ class Dispatcher {
         return handlers_[state_idx](id, *transitions_);
     }
 
-    template <typename S>
-    struct MatchesSourceState {
-        template <Transition T>
-        static constexpr bool test() {
-            using TrSrcTag = typename T::Src::Tag;
-            using TrSrcIds = typename T::Src::Ids;
-            constexpr auto tag_matches = std::same_as<TrSrcTag, typename S::Tag>;
-            constexpr auto id_matches =
-                tl::Empty<TrSrcIds> || tl::Contains<TrSrcIds, typename S::Id>;
-            return tag_matches && id_matches;
-        }
-    };
-
     template <typename SrcSpec>
     static int accept(const EId& id, TransitionsTuple& transitions) {
         int dst = -1;
@@ -75,8 +62,8 @@ class Dispatcher {
             }
         };
 
-        // transitions that match both the event and the source state
-        using Ts = tl::Filter<MatchesSourceState<SrcSpec>, EvTransitions>;
+        // event transitions that match source state and event id
+        using Ts = traits::FilterTransitionsBySrcAndEvent<SrcSpec, EId, EvTransitions>;
 
         tl::forEachShortCircuit(matcher, Ts{});
         return dst;

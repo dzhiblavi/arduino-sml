@@ -208,4 +208,50 @@ struct GetEventIdsI {
 template <tl::IsList Transitions>
 using GetEventIds = typename GetEventIdsI<Transitions>::type;
 
+// event ids of all transitions with matching source state tag
+template <typename Tag, tl::IsList Transitions>
+struct GetEventIdsBySrcTagI {
+    struct Mapper {
+        template <Transition T>
+        using Map = std::conditional_t<
+            std::same_as<Tag, typename T::Src::Tag>,
+            typename T::Event::Ids,
+            tl::List<>>;
+    };
+
+    using type = tl::Unique<tl::Flatten<tl::Map<Mapper, Transitions>>>;
+};
+
+template <typename Tag, tl::IsList Transitions>
+using GetEventIdsBySrcTag = typename GetEventIdsBySrcTagI<Tag, Transitions>::type;
+
+template <typename SrcSpec, typename EId, tl::IsList Transitions>
+struct FilterTransitionsBySrcAndEventI {
+    using AllEventIds = GetEventIdsBySrcTag<typename SrcSpec::Tag, Transitions>;
+
+    struct Pred {
+        template <Transition T>
+        static constexpr bool test() {
+            using TrSrcTag = typename T::Src::Tag;
+            using TrSrcIds = typename T::Src::Ids;
+            using TrEventIds = typename T::Event::Ids;
+
+            constexpr auto tag_matches = std::same_as<TrSrcTag, typename SrcSpec::Tag>;
+            constexpr auto src_id_matches =
+                tl::Empty<TrSrcIds> || tl::Contains<TrSrcIds, typename SrcSpec::Id>;
+            constexpr auto ev_id_matches =
+                tl::Contains<TrEventIds, EId> ||
+                (tl::Empty<TrEventIds> && tl::Contains<AllEventIds, EId>);
+
+            return tag_matches && src_id_matches && ev_id_matches;
+        }
+    };
+
+    using type = tl::Filter<Pred, Transitions>;
+};
+
+template <typename SrcSpec, typename EId, tl::IsList Transitions>
+using FilterTransitionsBySrcAndEvent =
+    typename FilterTransitionsBySrcAndEventI<SrcSpec, EId, Transitions>::type;
+
 }  // namespace sml::impl::traits

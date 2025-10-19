@@ -9,7 +9,7 @@ struct M1 {
     using InitialId = int;
 
     auto transitions() {
-        return table(src<float> + ev<float> = dst<char>);
+        return table(src<float> + ev<char> = dst<char>);
     }
 };
 
@@ -101,7 +101,7 @@ TEST(test_combined_transitions) {
                         transition::Make<
                             state::Src<void, float>,
                             state::Dst<void, sml::KeepStateId>,
-                            event::Make<float>>,
+                            event::Make<char>>,
                         state::Dst<void, char>>,
                     sml::M1>>,
             Ts>);
@@ -178,10 +178,47 @@ TEST(test_get_event_ids) {
     using namespace sml::impl::traits;
 
     using Ts = CombinedTransitions<M3>;
-    using Expected = tl::List<int, float>;
+    using Expected = tl::List<float, int, char>;
     using Ids = GetEventIds<Ts>;
 
     static_assert(std::same_as<Expected, Ids>);
+}
+
+TEST(test_get_event_ids_by_src_tag) {
+    using namespace sml::impl;
+
+    using Ts = traits::CombinedTransitions<M3>;
+    using Expected = tl::List<float, int>;  // no char!
+    using Ids = traits::GetEventIdsBySrcTag<M3, Ts>;
+
+    static_assert(std::same_as<Expected, Ids>);
+}
+
+TEST(test_filter_transitions_by_src_and_event) {
+    using namespace sml::impl;
+
+    using Ts = traits::CombinedTransitions<M3>;
+
+    using RTsChar = traits::FilterTransitionsBySrcAndEvent<traits::StateSpec<float, M3>, char, Ts>;
+    static_assert(std::same_as<tl::List<>, RTsChar>);
+
+    using RTsInt = traits::FilterTransitionsBySrcAndEvent<traits::StateSpec<int, M3>, int, Ts>;
+    using ExpInt = tl::List<
+        transition::Tagged<
+            transition::To<
+                transition::Make<
+                    state::Src<void, int>,
+                    state::Dst<void, sml::KeepStateId>,
+                    event::Make<int>>,
+                state::Dst<sml::M2, int>>,
+            sml::M3>,
+        transition::Tagged<
+            transition::To<
+                transition::
+                    Make<state::Src<void, int>, state::Dst<void, sml::KeepStateId>, event::Make<>>,
+                state::Dst<sml::M1, int>>,
+            sml::M3>>;
+    static_assert(std::same_as<ExpInt, RTsInt>);
 }
 
 }  // namespace sml
