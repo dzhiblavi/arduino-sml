@@ -37,6 +37,9 @@ class Dispatcher {
         return handlers_[state_idx](id, *transitions_);
     }
 
+ private:
+    using HandlerFunc = int (*)(const EId&, TransitionsTuple&);
+
     template <typename SrcSpec>
     static int accept(const EId& id, TransitionsTuple& transitions) {
         int dst = -1;
@@ -54,6 +57,7 @@ class Dispatcher {
             }
 
             if constexpr (std::same_as<BypassStateId, DstId>) {
+                dst = tl::Find<SrcSpec, StateSpecs>;
                 return false;
             } else {
                 static_assert(tl::Contains<StateSpecs, DstSpec>);
@@ -68,9 +72,6 @@ class Dispatcher {
         tl::forEachShortCircuit(matcher, Ts{});
         return dst;
     }
-
- private:
-    using HandlerFunc = int (*)(const EId&, TransitionsTuple&);
 
     TransitionsTuple* transitions_;
     std::array<HandlerFunc, NumOutboundStates> handlers_;

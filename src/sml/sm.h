@@ -33,6 +33,16 @@ class SM {
         }
     }
 
+    template <StateMachine M, typename Id>
+    bool is() const {
+        using Spec = impl::traits::StateSpec<Id, M>;
+        return state_idx_ == tl::Find<Spec, StateSpecs>;
+    }
+
+    void reset() {
+        state_idx_ = static_cast<int>(tl::Find<InitialSpec, StateSpecs>);
+    }
+
  private:
     using InitialSpec = impl::traits::StateSpec<typename TM::InitialId, TM>;
     using M = impl::traits::CombinedStateMachine<TM>;

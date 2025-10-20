@@ -14,16 +14,13 @@ auto iff(bool& go) {
     return [&](auto, auto) { return go; };
 }
 
-struct t_dispatcher {
-    struct E {};
-    struct S1 {};
-    struct S2 {};
-    struct S3 {};
-};
+auto never() {
+    return [](auto...) { return false; };
+}
 
-TEST_F(t_dispatcher, test_dispatcher_empty) {
+TEST(test_dispatcher_empty) {
     using Ts = tl::List<>;
-    using Disp = impl::Dispatcher<E, Ts>;
+    using Disp = impl::Dispatcher<int, Ts>;
 
     auto trs = std::tuple();
     Disp d{&trs};
@@ -32,233 +29,442 @@ TEST_F(t_dispatcher, test_dispatcher_empty) {
     // TEST_ASSERT_EQUAL(-1, d.dispatch(0, E{}));
 }
 
-TEST_F(t_dispatcher, test_dispatcher_runs) {
+TEST(test_dispatcher_no_transition_keeps_state) {
+    static int c;
+
     struct S {
-        using InitialId = S1;
-        auto transitions() {
-            return table(src<S1>.on(ev<E>).run(count(cnt)));
-        }
-        int& cnt;
-    };
-
-    using M = impl::traits::CombinedStateMachine<S>;
-    using Ts = impl::traits::Transitions<M>;
-    using Disp = impl::Dispatcher<E, Ts>;
-
-    int cnt = 0;
-    M m(S{cnt});
-    auto trs = m.transitions();
-    Disp d{&trs};
-
-    TEST_ASSERT_EQUAL(0, d.dispatch(0, E{}));
-    TEST_ASSERT_EQUAL(1, cnt);
-
-    TEST_ASSERT_EQUAL(0, d.dispatch(0, E{}));
-    TEST_ASSERT_EQUAL(2, cnt);
-}
-
-TEST_F(t_dispatcher, test_dispatcher_destination) {
-    struct S {
-        using InitialId = S1;
-        auto transitions() {
-            return table(src<S1>.on(ev<E>).to(dst<S2>));
-        }
-        int& cnt;
-    };
-
-    using M = impl::traits::CombinedStateMachine<S>;
-    using Ts = impl::traits::Transitions<M>;
-    using Disp = impl::Dispatcher<E, Ts>;
-
-    int cnt = 0;
-    M m(S{cnt});
-    auto trs = m.transitions();
-    Disp d{&trs};
-
-    // S1, S2
-    TEST_ASSERT_EQUAL(-1, d.dispatch(1, E{}));
-    TEST_ASSERT_EQUAL(1, d.dispatch(0, E{}));
-    TEST_ASSERT_EQUAL(-1, d.dispatch(1, E{}));
-}
-
-TEST_F(t_dispatcher, test_dispatcher_not_matched) {
-    struct S {
-        using InitialId = S1;
-        auto transitions() {
-            return table(src<S1>.on(ev<E>).when(iff(go)));
-        }
-        bool& go;
-    };
-
-    using M = impl::traits::CombinedStateMachine<S>;
-    using Ts = impl::traits::Transitions<M>;
-    using Disp = impl::Dispatcher<E, Ts>;
-
-    bool go = false;
-    M m(S{go});
-    auto trs = m.transitions();
-    Disp d{&trs};
-
-    go = false;
-    TEST_ASSERT_EQUAL(-1, d.dispatch(0, E{}));
-
-    go = true;
-    TEST_ASSERT_EQUAL(0, d.dispatch(1, E{}));
-}
-
-TEST_F(t_dispatcher, test_dispatcher_multiple) {
-    struct S {
-        using InitialId = S1;
-        auto transitions() {
-            return table(
-                src<S1>.on(ev<E>).when(iff(go1)).to(dst<S2>).run(count(c1)),
-                src<S1>.on(ev<E>).when(iff(go2)).to(dst<S3>).run(count(c2)));
-        }
-
-        bool &go1, &go2;
-        int &c1, &c2;
-    };
-
-    using M = impl::traits::CombinedStateMachine<S>;
-    using Ts = impl::traits::Transitions<M>;
-    using Disp = impl::Dispatcher<E, Ts>;
-
-    bool go1 = false, go2 = false;
-    int c1 = 0, c2 = 0;
-
-    M m(S{go1, go2, c1, c2});
-    auto trs = m.transitions();
-    Disp d{&trs};
-
-    // S2, S1, S3
-    go1 = go2 = true;
-    TEST_ASSERT_EQUAL(0, d.dispatch(1, E{}));  // t1
-    TEST_ASSERT_EQUAL(1, c1);
-    TEST_ASSERT_EQUAL(0, c2);
-
-    go1 = false;
-    TEST_ASSERT_EQUAL(2, d.dispatch(1, E{}));  // t2
-    TEST_ASSERT_EQUAL(1, c1);
-    TEST_ASSERT_EQUAL(1, c2);
-
-    go2 = false;
-    TEST_ASSERT_EQUAL(-1, d.dispatch(0, E{}));  // neither
-    TEST_ASSERT_EQUAL(1, c1);
-    TEST_ASSERT_EQUAL(1, c2);
-}
-
-TEST_F(t_dispatcher, test_dispatcher_bypass) {
-    struct S {
-        using InitialId = S1;
-        auto transitions() {
-            return table(
-                src<S1>.on(ev<E>).run(count(c1)).to(bypass), src<S1>.on(ev<E>).run(count(c2)));
-        }
-
-        int &c1, &c2;
-    };
-
-    using M = impl::traits::CombinedStateMachine<S>;
-    using Ts = impl::traits::Transitions<M>;
-    using Disp = impl::Dispatcher<E, Ts>;
-
-    int c1 = 0, c2 = 0;
-
-    M m(S{c1, c2});
-    auto trs = m.transitions();
-    Disp d{&trs};
-
-    TEST_ASSERT_EQUAL(0, d.dispatch(0, E{}));
-    TEST_ASSERT_EQUAL(1, c1);
-    TEST_ASSERT_EQUAL(1, c2);
-}
-
-TEST_F(t_dispatcher, test_dispatcher_keep) {
-    struct S {
-        using InitialId = S1;
-        auto transitions() {
-            return table(
-                src<S1>.on(ev<E>).run(count(c1)), src<S1>.on(ev<E>).run(count(c2)).to(dst<int>));
-        }
-
-        int &c1, &c2;
-    };
-
-    using M = impl::traits::CombinedStateMachine<S>;
-    using Ts = impl::traits::Transitions<M>;
-    using Disp = impl::Dispatcher<E, Ts>;
-
-    int c1 = 0, c2 = 0;
-
-    M m(S{c1, c2});
-    auto trs = m.transitions();
-    Disp d{&trs};
-
-    TEST_ASSERT_EQUAL(0, d.dispatch(0, E{}));
-    TEST_ASSERT_EQUAL(1, c1);
-    TEST_ASSERT_EQUAL(0, c2);
-}
-
-TEST_F(t_dispatcher, test_dispatcher_wildcard_events_separated) {
-    struct M1 {
-        using InitialId = S1;
+        using InitialId = int;
 
         auto transitions() {
             return table(
-                src<S1> + ev<int> != count(c1) = bypass,
-                src<S1> + ev<> != count(c2) = dst<S1>  // only int
+                src<char> + ev<char> != count(c) = dst<float>,
+                src<int> + ev<float> == never() != count(c)  //
             );
         }
-
-        int &c1, &c2;
     };
 
-    struct M2 {
-        using InitialId = S1;
-
-        auto transitions() {
-            return table(
-                src<S1> + ev<float> != count(c1) = enter<M1>,
-                src<S1> + ev<> != count(c2) = dst<S1>  // only char, float
-            );
-        }
-
-        int &c1, &c2;
-    };
-
-    using M = impl::traits::CombinedStateMachine<M2>;
+    using M = impl::traits::CombinedStateMachine<S>;
     using Ts = impl::traits::Transitions<M>;
-    // states: s1/m2, s1/m1
+    // char=0, int=1
 
-    int m11 = 0, m12 = 0, m21 = 0, m22 = 0;
-
-    M m(M2{m21, m22}, M1{m11, m12});
+    c = 0;
+    M m;
     auto trs = m.transitions();
 
-    {
-        m11 = 0, m12 = 0, m21 = 0, m22 = 0;
-        using Disp = impl::Dispatcher<int, Ts>;
+    SECTION("source state does not match") {
+        using Disp = impl::Dispatcher<char, Ts>;
         Disp d{&trs};
-        TEST_ASSERT_EQUAL(-1, d.dispatch(0, 10));
-        TEST_ASSERT_EQUAL(1, d.dispatch(1, 10));
-        TEST_ASSERT_EQUAL(1, m11);
-        TEST_ASSERT_EQUAL(1, m12);
-        TEST_ASSERT_EQUAL(0, m21);
-        TEST_ASSERT_EQUAL(0, m22);
+
+        TEST_ASSERT_EQUAL(-1, d.dispatch(1, 'a'));
+        TEST_ASSERT_EQUAL(0, c);
     }
 
-    {
-        m11 = 0, m12 = 0, m21 = 0, m22 = 0;
+    SECTION("no transition matches event") {
+        using Disp = impl::Dispatcher<int, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(-1, d.dispatch(1, 10));
+        TEST_ASSERT_EQUAL(0, c);
+    }
+
+    SECTION("blocked by transition condition") {
         using Disp = impl::Dispatcher<float, Ts>;
         Disp d{&trs};
-        TEST_ASSERT_EQUAL(1, d.dispatch(0, 1.f));
-        TEST_ASSERT_EQUAL(0, m11);
-        TEST_ASSERT_EQUAL(0, m12);
-        TEST_ASSERT_EQUAL(1, m21);
-        TEST_ASSERT_EQUAL(0, m22);
+
+        TEST_ASSERT_EQUAL(-1, d.dispatch(1, 1.f));
+        TEST_ASSERT_EQUAL(0, c);
+    }
+}
+
+TEST(test_dispatcher_transition_correct_dst_state) {
+    static int c;
+
+    struct S {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<char> + ev<char> != count(c),                // keep state
+                src<int> + ev<int> != count(c) = dst<char>,      // change state
+                src<float> + ev<float> != count(c) = dst<float>  // keep state explicitly
+            );
+        }
+    };
+
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    // int=0, char=1, float=2
+
+    c = 0;
+    M m;
+    auto trs = m.transitions();
+
+    SECTION("no transition destination specified") {
+        using Disp = impl::Dispatcher<char, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(1, d.dispatch(1, 'a'));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+
+    SECTION("transition destination differs from source") {
+        using Disp = impl::Dispatcher<int, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(1, d.dispatch(0, 'a'));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+
+    SECTION("transition destination is same as source") {
+        using Disp = impl::Dispatcher<float, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(2, d.dispatch(2, 'a'));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+}
+
+TEST(test_dispatcher_respects_transition_order) {
+    static int c;
+    static auto ifg = [](char c) { return [c](auto, char x) { return x >= c; }; };
+
+    struct S {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<char> + ev<char> == ifg('b') != count(c) = dst<int>,   //
+                src<char> + ev<char> == ifg('a') != count(c) = dst<float>  //
+            );
+        }
+    };
+
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    // int, char, float
+
+    c = 0;
+    M m;
+    auto trs = m.transitions();
+
+    SECTION("first transition matches") {
+        using Disp = impl::Dispatcher<char, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(0, d.dispatch(1, 'b'));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+
+    SECTION("second transition matches") {
+        using Disp = impl::Dispatcher<char, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(2, d.dispatch(1, 'a'));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+}
+
+TEST(test_dispatcher_bypass) {
+    static int c;
+
+    struct S {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<char> + ev<char> != count(c) = bypass,     //
+                src<char> + ev<char> != count(c) = dst<float>  //
+            );
+        }
+    };
+
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    // char, float
+
+    c = 0;
+    M m;
+    auto trs = m.transitions();
+
+    SECTION("executes transition and tests the next one") {
+        using Disp = impl::Dispatcher<char, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(1, d.dispatch(0, 'b'));
+        TEST_ASSERT_EQUAL(2, c);
+    }
+}
+
+TEST(test_dispatcher_multi_event) {
+    static int c;
+
+    struct S {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<char> + ev<char, float> != count(c) = dst<int>,
+                src<int> + ev<int> != count(c) = dst<char>);
+        }
+    };
+
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    // int, char
+
+    c = 0;
+    M m;
+    auto trs = m.transitions();
+
+    SECTION("matches multi event transition") {
+        using Disp = impl::Dispatcher<char, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(0, d.dispatch(1, 'b'));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+
+    SECTION("does not match, event exists") {
+        using Disp = impl::Dispatcher<int, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(-1, d.dispatch(1, 10));
+    }
+
+    SECTION("event does not exist") {
+        using Disp = impl::Dispatcher<float*, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(-1, d.dispatch(1, nullptr));
+    }
+}
+
+TEST(test_dispatcher_wildcard_event) {
+    static int c;
+
+    struct S {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<char> + ev<> != count(c) = dst<int>,
+                src<int> + ev<int> != count(c) = dst<char>);
+        }
+    };
+
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    // int, char
+
+    c = 0;
+    M m;
+    auto trs = m.transitions();
+
+    SECTION("matches wildcard event transition") {
+        using Disp = impl::Dispatcher<int, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(0, d.dispatch(1, 'b'));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+
+    SECTION("does not match an unknown event") {
+        using Disp = impl::Dispatcher<float, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(-1, d.dispatch(1, 'b'));
+        TEST_ASSERT_EQUAL(0, c);
+    }
+}
+
+TEST(test_dispatcher_multi_source) {
+    static int c;
+
+    struct S {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<char, int> + ev<int> != count(c) = dst<float>,
+                src<int> + ev<int> = dst<char>,
+                src<char> + ev<int> = dst<char>  //
+            );
+        }
+    };
+
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    using Disp = impl::Dispatcher<int, Ts>;
+    // float, int, char
+
+    c = 0;
+    M m;
+    auto trs = m.transitions();
+    Disp d{&trs};
+
+    SECTION("matches multi source transition (1)") {
+        TEST_ASSERT_EQUAL(0, d.dispatch(1, 10));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+
+    SECTION("matches multi source transition (2)") {
+        TEST_ASSERT_EQUAL(0, d.dispatch(2, 10));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+
+    SECTION("does not match multi source transition") {
+        TEST_ASSERT_EQUAL(-1, d.dispatch(0, 10));
+        TEST_ASSERT_EQUAL(0, c);
+    }
+}
+
+TEST(test_dispatcher_wildcard_source) {
+    static int c;
+
+    struct S {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<> + ev<int> != count(c) = dst<float>,
+                src<int> + ev<int> = dst<char>,
+                src<char> + ev<int> = dst<char>  //
+            );
+        }
+    };
+
+    using M = impl::traits::CombinedStateMachine<S>;
+    using Ts = impl::traits::Transitions<M>;
+    using Disp = impl::Dispatcher<int, Ts>;
+    // float, int, char
+
+    c = 0;
+    M m;
+    auto trs = m.transitions();
+    Disp d{&trs};
+
+    SECTION("matches wildcard source transition (1)") {
+        TEST_ASSERT_EQUAL(0, d.dispatch(1, 10));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+
+    SECTION("matches multi source transition (2)") {
+        TEST_ASSERT_EQUAL(0, d.dispatch(2, 10));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+
+    SECTION("matches multi source transition (3)") {
+        TEST_ASSERT_EQUAL(0, d.dispatch(0, 10));
+        TEST_ASSERT_EQUAL(1, c);
+    }
+}
+
+TEST(test_dispatcher_respects_source_state_tags) {
+    static int c1, c2;
+
+    struct S1 {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<int> + ev<int> != count(c1) = bypass  //
+            );
+        }
+    };
+
+    struct S2 {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<int> + ev<float> = enter<S1>,         // for S1 inclusion only
+                src<int> + ev<int> != count(c2) = bypass  //
+            );
+        }
+    };
+
+    using M = impl::traits::CombinedStateMachine<S2>;
+    using Ts = impl::traits::Transitions<M>;
+    using Disp = impl::Dispatcher<int, Ts>;
+    // S2, S1
+
+    c1 = c2 = 0;
+    M m;
+    auto trs = m.transitions();
+    Disp d{&trs};
+
+    SECTION("chooses submachine's transition") {
+        TEST_ASSERT_EQUAL(1, d.dispatch(1, 10));
+        TEST_ASSERT_EQUAL(1, c1);
+        TEST_ASSERT_EQUAL(0, c2);
+    }
+
+    SECTION("chooses outer machine's transition") {
+        TEST_ASSERT_EQUAL(0, d.dispatch(0, 10));
+        TEST_ASSERT_EQUAL(0, c1);
+        TEST_ASSERT_EQUAL(1, c2);
+    }
+}
+
+TEST(test_dispatcher_wildcard_events_only_local) {
+    static int c1, c2;
+
+    struct S1 {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<int> + ev<char, int> != count(c1) = bypass  //
+            );
+        }
+    };
+
+    struct S2 {
+        using InitialId = int;
+
+        auto transitions() {
+            return table(
+                src<int> + ev<> != count(c2),  // only float should be respected
+                src<int> + ev<float> = enter<S1>,
+                exit<S1> + onEnter  //
+            );
+        }
+    };
+
+    using M = impl::traits::CombinedStateMachine<S2>;
+    using Ts = impl::traits::Transitions<M>;
+    // int(S2), term(S1), int(S1)
+
+    c1 = c2 = 0;
+    M m;
+    auto trs = m.transitions();
+
+    SECTION("matches outer machine's wildcard event") {
+        using Disp = impl::Dispatcher<float, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(0, d.dispatch(0, 1.f));
+        TEST_ASSERT_EQUAL(0, c1);
+        TEST_ASSERT_EQUAL(1, c2);
+    }
+
+    SECTION("submachine's event ids are not included") {
+        using Disp = impl::Dispatcher<char, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(-1, d.dispatch(0, 'a'));
+        TEST_ASSERT_EQUAL(0, c1);
+        TEST_ASSERT_EQUAL(0, c2);
+    }
+
+    SECTION("exit<> source state does not introduce an event to wildcard") {
+        using Disp = impl::Dispatcher<OnExitEventId, Ts>;
+        Disp d{&trs};
+
+        TEST_ASSERT_EQUAL(-1, d.dispatch(0, OnExitEventId{}));
+        TEST_ASSERT_EQUAL(0, c1);
+        TEST_ASSERT_EQUAL(0, c2);
     }
 }
 
 }  // namespace sml
-
-TESTS_MAIN

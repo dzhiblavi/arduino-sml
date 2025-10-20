@@ -105,5 +105,3 @@ TEST(test_concrete_state_machine) {
 }
 
 }  // namespace sml
-
-TESTS_MAIN

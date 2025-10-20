@@ -88,5 +88,3 @@ TEST(test_transition_with_chain) {
 }
 
 }  // namespace sml
-
-TESTS_MAIN
