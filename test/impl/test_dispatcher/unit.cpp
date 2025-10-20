@@ -468,3 +468,5 @@ TEST(test_dispatcher_wildcard_events_only_local) {
 }
 
 }  // namespace sml
+
+TESTS_MAIN

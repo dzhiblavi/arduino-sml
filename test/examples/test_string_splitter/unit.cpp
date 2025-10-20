@@ -100,3 +100,5 @@ TEST(test_sm_string_splitter) {
 }  // namespace sml
 
 #endif
+
+TESTS_MAIN

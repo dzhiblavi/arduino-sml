@@ -205,3 +205,5 @@ TEST(test_sm_event_builder_syntax) {
 }
 
 }  // namespace sml
+
+TESTS_MAIN

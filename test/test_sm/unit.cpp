@@ -171,3 +171,5 @@ TEST(test_sm_saves_new_state_if_needed) {
 }
 
 }  // namespace sml
+
+TESTS_MAIN

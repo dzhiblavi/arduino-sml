@@ -196,3 +196,5 @@ TEST(test_sm_kv_parser) {
 }  // namespace sml
 
 #endif
+
+TESTS_MAIN

@@ -222,3 +222,5 @@ TEST(test_filter_transitions_by_src_and_event) {
 }
 
 }  // namespace sml
+
+TESTS_MAIN
