@@ -1,11 +1,11 @@
+#include <utest/utest.h>
+
 #if __has_include(<map>)
 
 #include <sml/make.h>
 #include <sml/overloads.h>
 #include <sml/sm.h>
 #include <sml/syntax.h>
-
-#include <utest/utest.h>
 
 #include <map>
 #include <string>
@@ -18,8 +18,8 @@ std::string value;
 
 auto log(auto name) {
     return overloads{
-        [name](auto, char c) { LINFO("%s received %c", name, c); },
-        [name](auto, OnEnterEventId) { LINFO("%s received onEnter", name); },
+        [name](auto, char c) { LINFO(name, " received ", c); },
+        [name](auto, OnEnterEventId) { LINFO(name, " received onEnter"); },
     };
 };
 
