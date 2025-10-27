@@ -6,9 +6,8 @@
     "frameworks": "*",
     "platforms": "*",
     "dependencies": {
-        "log": "^0.0.1",
-        "stdlike": "^0.0.1",
-        "supp": "^0.0.1"
+        "dzhiblavi/logging": "^0.0.4",
+        "dzhiblavi/support": "^0.0.4"
     },
     "build": {
         "includeDir": "src"
