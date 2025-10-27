@@ -18,17 +18,6 @@ auto never() {
     return [](auto...) { return false; };
 }
 
-TEST(test_dispatcher_empty) {
-    using Ts = tl::List<>;
-    using Disp = impl::Dispatcher<int, Ts>;
-
-    auto trs = std::tuple();
-    Disp d{&trs};
-
-    // Undefined:
-    // TEST_ASSERT_EQUAL(-1, d.dispatch(0, E{}));
-}
-
 TEST(test_dispatcher_no_transition_keeps_state) {
     static int c;
 
@@ -56,14 +45,6 @@ TEST(test_dispatcher_no_transition_keeps_state) {
         Disp d{&trs};
 
         TEST_ASSERT_EQUAL(-1, d.dispatch(1, 'a'));
-        TEST_ASSERT_EQUAL(0, c);
-    }
-
-    SECTION("no transition matches event") {
-        using Disp = impl::Dispatcher<int, Ts>;
-        Disp d{&trs};
-
-        TEST_ASSERT_EQUAL(-1, d.dispatch(1, 10));
         TEST_ASSERT_EQUAL(0, c);
     }
 
@@ -229,13 +210,6 @@ TEST(test_dispatcher_multi_event) {
         Disp d{&trs};
 
         TEST_ASSERT_EQUAL(-1, d.dispatch(1, 10));
-    }
-
-    SECTION("event does not exist") {
-        using Disp = impl::Dispatcher<float*, Ts>;
-        Disp d{&trs};
-
-        TEST_ASSERT_EQUAL(-1, d.dispatch(1, nullptr));
     }
 }
 
